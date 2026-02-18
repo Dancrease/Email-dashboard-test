@@ -105,7 +105,11 @@ async function sendApprovedEmails(client: any, supabase: any, accessToken: strin
 
 function checkEscalation(email: any, config: any): boolean {
   const keywords = config.escalation_keywords || [];
-  const emailText = `${email.subject} ${email.body}`.toLowerCase();
+  // Strip quoted lines (lines starting with >) so AI's own quoted text doesn't trigger escalation
+  const strippedBody = email.body.split('
+').filter((line: string) => !line.trimStart().startsWith('>')).join('
+');
+  const emailText = `${email.subject} ${strippedBody}`.toLowerCase();
   return keywords.some((keyword: string) => emailText.includes(keyword.toLowerCase()));
 }
 
@@ -122,7 +126,11 @@ async function generateAIResponse(email: any, client: any): Promise<string> {
 
 async function categorizeEmail(email: any, client: any): Promise<string> {
   const categories: string[] = client.config.categories || ['General Inquiry'];
-  const emailText = `${email.subject} ${email.body}`.toLowerCase();
+  // Strip quoted lines (lines starting with >) so AI's own quoted text doesn't trigger escalation
+  const strippedBody = email.body.split('
+').filter((line: string) => !line.trimStart().startsWith('>')).join('
+');
+  const emailText = `${email.subject} ${strippedBody}`.toLowerCase();
 
   for (const category of categories) {
     const keywords = category.toLowerCase().split(/[\s_-]+/).filter((w: string) => w.length > 4).map((w: string) => w.substring(0, 5));
