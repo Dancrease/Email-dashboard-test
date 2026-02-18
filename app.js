@@ -1,12 +1,12 @@
 const SUPABASE_URL = 'https://zkquexmmbstiakfhmfvf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcXVleG1tYnN0aWFrZmhtZnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjEyMjAsImV4cCI6MjA4NjkzNzIyMH0.W5EmisLiMfQtIk93YlbtS3zsoLCtq7JQYe3zsXwHBdk';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let CLIENT_ID = null;
 let categoriesChart = null;
 
 async function signInWithGoogle() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
             redirectTo: window.location.origin
@@ -19,16 +19,16 @@ async function signInWithGoogle() {
 }
 
 async function signOut() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     window.location.reload();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     
     if (session) {
         console.log('User logged in:', session.user.email);
-        const { data: client, error } = await supabase.from('clients').select('*').eq('monitored_email', session.user.email).single();
+        const { data: client, error } = await supabaseClient.from('clients').select('*').eq('monitored_email', session.user.email).single();
         
         if (error || !client) {
             alert('No client account found for: ' + session.user.email);
@@ -37,7 +37,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
         
         if (!client.auth_user_id) {
-            await supabase.from('clients').update({ auth_user_id: session.user.id }).eq('id', client.id);
+            await supabaseClient.from('clients').update({ auth_user_id: session.user.id }).eq('id', client.id);
         }
         
         CLIENT_ID = client.id;
@@ -52,7 +52,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 async function loadDashboard() {
     try {
-        const { data: client } = await supabase.from('clients').select('*').eq('id', CLIENT_ID).single();
+        const { data: client } = await supabaseClient.from('clients').select('*').eq('id', CLIENT_ID).single();
         if (client) {
             document.getElementById('company-name').textContent = client.company_name;
             document.getElementById('auto-send-toggle').checked = !client.config.approval_mode;
@@ -67,12 +67,12 @@ async function loadDashboard() {
 
 async function loadStats() {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const { data: stats } = await supabase.from('monthly_stats').select('*').eq('client_id', CLIENT_ID).eq('month', currentMonth).single();
+    const { data: stats } = await supabaseClient.from('monthly_stats').select('*').eq('client_id', CLIENT_ID).eq('month', currentMonth).single();
     
     document.getElementById('total-emails').textContent = stats?.total_emails || 0;
     document.getElementById('auto-replied').textContent = stats?.auto_replied || 0;
     
-    const { count } = await supabase.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
+    const { count } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
     document.getElementById('pending-count').textContent = count || 0;
     
     updateChart(stats?.categories || {});
@@ -136,7 +136,7 @@ function updateChart(categories) {
 }
 
 async function loadPendingEmails() {
-    const { data: emails } = await supabase.from('emails').select('*').eq('client_id', CLIENT_ID).eq('status', 'pending_approval').order('created_at', { ascending: false });
+    const { data: emails } = await supabaseClient.from('emails').select('*').eq('client_id', CLIENT_ID).eq('status', 'pending_approval').order('created_at', { ascending: false });
     const container = document.getElementById('pending-emails-container');
     
     if (!emails || emails.length === 0) {
@@ -172,7 +172,7 @@ async function loadPendingEmails() {
 }
 
 async function loadRecentEmails() {
-    const { data: emails } = await supabase.from('emails').select('*').eq('client_id', CLIENT_ID).in('status', ['auto_replied', 'approved', 'rejected', 'escalated']).order('created_at', { ascending: false }).limit(10);
+    const { data: emails } = await supabaseClient.from('emails').select('*').eq('client_id', CLIENT_ID).in('status', ['auto_replied', 'approved', 'rejected', 'escalated']).order('created_at', { ascending: false }).limit(10);
     const container = document.getElementById('recent-emails-container');
     
     if (!emails || emails.length === 0) {
@@ -211,10 +211,10 @@ async function loadRecentEmails() {
 async function approveEmail(emailId) {
     try {
         const responseText = document.getElementById(`response-${emailId}`).value;
-        const { data: email } = await supabase.from('emails').select('*').eq('id', emailId).single();
+        const { data: email } = await supabaseClient.from('emails').select('*').eq('id', emailId).single();
         
         if (email) {
-            await supabase.from('emails').update({ status: 'approved', ai_response: responseText }).eq('id', emailId);
+            await supabaseClient.from('emails').update({ status: 'approved', ai_response: responseText }).eq('id', emailId);
             alert('✓ Email approved!');
             await loadDashboard();
         }
@@ -227,7 +227,7 @@ async function approveEmail(emailId) {
 async function rejectEmail(emailId) {
     if (!confirm('Reject this email?')) return;
     try {
-        await supabase.from('emails').update({ status: 'rejected' }).eq('id', emailId);
+        await supabaseClient.from('emails').update({ status: 'rejected' }).eq('id', emailId);
         alert('Email rejected');
         await loadDashboard();
     } catch (error) {
@@ -241,7 +241,7 @@ document.getElementById('auto-send-toggle').addEventListener('change', async (e)
         const approvalMode = !e.target.checked;
         const config = await getClientConfig();
         config.approval_mode = approvalMode;
-        await supabase.from('clients').update({ config: config }).eq('id', CLIENT_ID);
+        await supabaseClient.from('clients').update({ config: config }).eq('id', CLIENT_ID);
         alert(approvalMode ? 'Approval mode enabled' : 'Auto-send enabled ✓');
     } catch (error) {
         console.error(error);
@@ -251,7 +251,7 @@ document.getElementById('auto-send-toggle').addEventListener('change', async (e)
 });
 
 async function getClientConfig() {
-    const { data } = await supabase.from('clients').select('config').eq('id', CLIENT_ID).single();
+    const { data } = await supabaseClient.from('clients').select('config').eq('id', CLIENT_ID).single();
     return data?.config || {};
 }
 
