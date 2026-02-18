@@ -54,6 +54,8 @@ async function processClientEmails(client: any, supabase: any) {
       let status = 'pending_approval';
       let category = 'General Inquiry';
 
+      let escalatedTo = null;
+
       if (!shouldEscalate) {
         aiResponse = await generateAIResponse(email, client);
         category = await categorizeEmail(email, client);
@@ -63,6 +65,14 @@ async function processClientEmails(client: any, supabase: any) {
           status = 'auto_replied';
         }
       } else {
+        category = await categorizeEmail(email, client);
+        escalatedTo = getEscalationRecipient(category, client.config);
+        // Send holding reply to customer
+        const holdingReply = `Thank you for contacting us. We've received your message and a member of our team will be in touch with you shortly.\n\nBest regards,\n${client.config.business_description || 'Our Team'}`;
+        await sendGmailReply(accessToken, email.from, email.subject, holdingReply, email.threadId);
+        // Forward to the appropriate team member
+        if (escalatedTo) await forwardEscalatedEmail(accessToken, escalatedTo, email);
+        await labelEmail(accessToken, email.id, 'Escalated');
         status = 'escalated';
       }
 
@@ -72,7 +82,7 @@ async function processClientEmails(client: any, supabase: any) {
       const { error: insertError } = await supabase.from('emails').insert({
         client_id: client.id, gmail_message_id: email.id, gmail_thread_id: email.threadId,
         sender: email.from, subject: email.subject, body: email.body,
-        ai_response: aiResponse, category, status, delete_after: deleteAfter.toISOString()
+        ai_response: aiResponse, category, status, escalated_to: escalatedTo, delete_after: deleteAfter.toISOString()
       });
       if (insertError) throw insertError;
 
@@ -106,9 +116,7 @@ async function sendApprovedEmails(client: any, supabase: any, accessToken: strin
 function checkEscalation(email: any, config: any): boolean {
   const keywords = config.escalation_keywords || [];
   // Strip quoted lines (lines starting with >) so AI's own quoted text doesn't trigger escalation
-  const strippedBody = email.body.split('
-').filter((line: string) => !line.trimStart().startsWith('>')).join('
-');
+  const strippedBody = email.body.split('\n').filter((line: string) => !line.trimStart().startsWith('>')).join('\n');
   const emailText = `${email.subject} ${strippedBody}`.toLowerCase();
   return keywords.some((keyword: string) => emailText.includes(keyword.toLowerCase()));
 }
@@ -126,11 +134,7 @@ async function generateAIResponse(email: any, client: any): Promise<string> {
 
 async function categorizeEmail(email: any, client: any): Promise<string> {
   const categories: string[] = client.config.categories || ['General Inquiry'];
-  // Strip quoted lines (lines starting with >) so AI's own quoted text doesn't trigger escalation
-  const strippedBody = email.body.split('
-').filter((line: string) => !line.trimStart().startsWith('>')).join('
-');
-  const emailText = `${email.subject} ${strippedBody}`.toLowerCase();
+  const emailText = `${email.subject} ${email.body}`.toLowerCase();
 
   for (const category of categories) {
     const keywords = category.toLowerCase().split(/[\s_-]+/).filter((w: string) => w.length > 4).map((w: string) => w.substring(0, 5));
@@ -152,6 +156,23 @@ async function categorizeEmail(email: any, client: any): Promise<string> {
     console.error('AI categorisation failed:', e);
   }
   return categories[categories.length - 1] || 'General Inquiry';
+}
+
+function getEscalationRecipient(category: string, config: any): string {
+  const teamMembers = config.team_members || {};
+  if (category.toLowerCase().includes('billing') && teamMembers.billing) return teamMembers.billing;
+  return teamMembers.manager || '';
+}
+
+async function forwardEscalatedEmail(accessToken: string, to: string, email: any): Promise<void> {
+  const forwardBody = `--- Escalated Customer Email ---\nFrom: ${email.from}\nSubject: ${email.subject}\n\n${email.body}`;
+  const rawEmail = [`To: ${to}`, `Subject: [Escalated] ${email.subject}`, 'Content-Type: text/plain; charset=utf-8', '', forwardBody].join('\r\n');
+  const encoded = btoa(unescape(encodeURIComponent(rawEmail))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw: encoded })
+  });
 }
 
 async function updateMonthlyStats(supabase: any, clientId: string, month: string, category: string, status: string) {
