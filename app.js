@@ -28,7 +28,17 @@ async function toggleAgentPause() {
     const btn = document.getElementById('pause-btn');
     btn.textContent = 'Updating...';
     btn.disabled = true;
-    const { data: client } = await supabaseClient.from('clients').select('is_active').eq('id', CLIENT_ID).single();
+    const newState = \!agentIsActive;
+    const { error } = await supabaseClient.from('clients').update({ is_active: newState }).eq('id', CLIENT_ID);
+    if (error) {
+        console.error('Pause toggle failed:', error);
+        alert('Failed to update agent status. Please try again.');
+        btn.textContent = agentIsActive ? 'Pause Agent' : 'Resume Agent';
+    } else {
+        updatePauseUI(newState);
+    }
+    btn.disabled = false;
+} = await supabaseClient.from('clients').select('is_active').eq('id', CLIENT_ID).single();
     const newState = !client.is_active;
     await supabaseClient.from('clients').update({ is_active: newState }).eq('id', CLIENT_ID);
     updatePauseUI(newState);
@@ -36,6 +46,7 @@ async function toggleAgentPause() {
 }
 
 function updatePauseUI(isActive) {
+    agentIsActive = isActive;
     const banner = document.getElementById('paused-banner');
     const btn = document.getElementById('pause-btn');
     const card = document.getElementById('pause-card');
@@ -47,6 +58,13 @@ function updatePauseUI(isActive) {
         card.style.borderColor = '';
         desc.textContent = 'Immediately halt all email processing';
     } else {
+        banner.classList.remove('hidden');
+        btn.textContent = 'Resume Agent';
+        btn.className = 'pill-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition';
+        card.style.borderColor = 'rgba(239,68,68,0.4)';
+        desc.textContent = 'Agent is paused — click to resume processing';
+    }
+} else {
         banner.classList.remove('hidden');
         btn.textContent = 'Resume Agent';
         btn.className = 'pill-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition';
