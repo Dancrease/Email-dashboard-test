@@ -59,13 +59,6 @@ function updatePauseUI(isActive) {
         card.style.borderColor = 'rgba(239,68,68,0.4)';
         desc.textContent = 'Agent is paused — click to resume processing';
     }
-} else {
-        banner.classList.remove('hidden');
-        btn.textContent = 'Resume Agent';
-        btn.className = 'pill-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition';
-        card.style.borderColor = 'rgba(239,68,68,0.4)';
-        desc.textContent = 'Agent is paused — click to resume processing';
-    }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
