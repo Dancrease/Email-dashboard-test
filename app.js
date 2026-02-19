@@ -165,6 +165,12 @@ async function loadStats() {
     const bellDot = document.getElementById('bell-dot');
     if (bellDot) bellDot.classList.toggle('hidden', !pendingCount || pendingCount === 0);
 
+    // Not Actioned (Spam + OOO)
+    const { count: spamCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'spam').gte('created_at', monthStart);
+    const { count: oooCount }  = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'auto_reply').gte('created_at', monthStart);
+    document.getElementById('not-actioned-count').textContent = (spamCount || 0) + (oooCount || 0);
+    document.getElementById('not-actioned-breakdown').textContent = `${spamCount || 0} Spam · ${oooCount || 0} OOO`;
+
     // Chart — query emails grouped by category and status
     const { data: emailsForChart } = await supabaseClient.from('emails').select('category, status').eq('client_id', CLIENT_ID).gte('created_at', monthStart).in('status', ['auto_replied', 'escalated', 'pending_approval']);
     const chartData = {};
@@ -201,9 +207,9 @@ function updateChart(categories) {
         data: {
             labels,
             datasets: [
-                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: 0 },
+                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: { topLeft: 8, bottomLeft: 8, topRight: 0, bottomRight: 0 } },
                 { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 0 },
-                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: 4 },
+                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: { topLeft: 0, bottomLeft: 0, topRight: 8, bottomRight: 8 } },
             ]
         },
         options: {
