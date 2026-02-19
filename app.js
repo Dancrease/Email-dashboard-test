@@ -24,6 +24,24 @@ async function signOut() {
     window.location.reload();
 }
 
+function toggleUserMenu() {
+    const dropdown = document.getElementById('user-dropdown');
+    dropdown.classList.toggle('hidden');
+    if (!dropdown.classList.contains('hidden')) {
+        dropdown.classList.remove('dropdown-enter');
+        void dropdown.offsetWidth;
+        dropdown.classList.add('dropdown-enter');
+    }
+}
+
+document.addEventListener('click', (e) => {
+    const btn = document.getElementById('user-avatar-btn');
+    const dropdown = document.getElementById('user-dropdown');
+    if (dropdown && !dropdown.classList.contains('hidden') && btn && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
+
 async function toggleAgentPause() {
     const btn = document.getElementById('pause-btn');
     btn.textContent = 'Updating...';
@@ -93,6 +111,8 @@ async function loadDashboard() {
         const { data: client } = await supabaseClient.from('clients').select('*').eq('id', CLIENT_ID).single();
         if (client) {
             document.getElementById('company-name').textContent = client.company_name;
+            const initials = client.company_name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+            document.getElementById('user-initials').textContent = initials;
             document.getElementById('auto-send-toggle').checked = !client.config.approval_mode;
             updatePauseUI(client.is_active);
             await loadStats();
