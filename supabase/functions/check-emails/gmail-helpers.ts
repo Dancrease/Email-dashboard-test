@@ -4,6 +4,7 @@ interface GmailMessage {
   from: string;
   subject: string;
   body: string;
+  isAutoReply: boolean;
 }
 
 export async function getAccessToken(refreshToken: string): Promise<string> {
@@ -44,7 +45,21 @@ export async function fetchNewEmails(accessToken: string, lastCheckTime?: string
       const textPart = msgData.payload.parts.find((p: any) => p.mimeType === 'text/plain');
       if (textPart?.body?.data) body = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
     }
-    messages.push({ id: msgData.id, threadId: msgData.threadId, from, subject, body });
+
+    const autoSubmitted = headers.find((h: any) => h.name.toLowerCase() === 'auto-submitted')?.value || '';
+    const precedence = headers.find((h: any) => h.name.toLowerCase() === 'precedence')?.value || '';
+    const xAutoreply = headers.find((h: any) => h.name.toLowerCase() === 'x-autoreply')?.value || '';
+    const xAutoResponseSuppress = headers.find((h: any) => h.name.toLowerCase() === 'x-auto-response-suppress')?.value || '';
+    const headerAutoReply =
+      (autoSubmitted !== '' && autoSubmitted.toLowerCase() !== 'no') ||
+      precedence.toLowerCase().includes('auto') ||
+      xAutoreply.toLowerCase() === 'yes' ||
+      xAutoResponseSuppress !== '';
+    const subjectPatterns = ['out of office', 'automatic reply', 'auto reply', 'auto:', 'vacation reply', 'on holiday', 'on annual leave', 'away from the office'];
+    const subjectAutoReply = subjectPatterns.some(p => subject.toLowerCase().includes(p));
+    const isAutoReply = headerAutoReply || subjectAutoReply;
+
+    messages.push({ id: msgData.id, threadId: msgData.threadId, from, subject, body, isAutoReply });
   }
   return messages;
 }
