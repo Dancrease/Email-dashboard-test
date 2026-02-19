@@ -209,9 +209,9 @@ function updateChart(categories) {
         data: {
             labels,
             datasets: [
-                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: 8 },
-                { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 8 },
-                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: 8 },
+                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)' },
+                { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)' },
+                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)' },
             ]
         },
         options: {
@@ -236,12 +236,14 @@ function updateChart(categories) {
             },
             scales: {
                 x: {
+                    stacked: true,
                     beginAtZero: true,
                     ticks: { color: '#71717a', font: { size: 11 }, stepSize: 1 },
                     grid: { color: 'rgba(255,255,255,0.03)' },
                     border: { display: false }
                 },
                 y: {
+                    stacked: true,
                     ticks: { color: '#e4e4e7', font: { size: 12, weight: '500' } },
                     grid: { display: false },
                     border: { display: false }
