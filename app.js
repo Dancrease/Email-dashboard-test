@@ -58,20 +58,31 @@ async function toggleAgentPause() {
     btn.disabled = false;
 }
 
-function updatePauseUI(isActive) {
+function updatePauseUI(isActive, adminPaused) {
     agentIsActive = isActive;
     const banner = document.getElementById('paused-banner');
     const btn = document.getElementById('pause-btn');
     const card = document.getElementById('pause-card');
     const desc = document.getElementById('pause-desc');
-    if (isActive) {
+    if (adminPaused) {
+        banner.classList.remove('hidden');
+        banner.className = 'hidden mb-5 bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4 flex items-center gap-4';
+        banner.classList.remove('hidden');
+        banner.innerHTML = '<div class="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div><div><div class="font-semibold text-orange-400 mb-0.5">Paused by Administrator</div><p class="text-sm text-orange-400/70">Your account has been paused. Please contact your administrator.</p></div>';
+        card.style.display = 'none';
+    } else if (isActive) {
         banner.classList.add('hidden');
+        card.style.display = '';
         btn.textContent = 'Pause Agent';
         btn.className = 'pill-badge bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition';
         card.style.borderColor = '';
         desc.textContent = 'Immediately halt all email processing';
     } else {
         banner.classList.remove('hidden');
+        banner.className = 'hidden mb-5 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center gap-4';
+        banner.classList.remove('hidden');
+        banner.innerHTML = '<div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div><div><div class="font-semibold text-red-400 mb-0.5">Agent Paused</div><p class="text-sm text-red-400/70">All email processing is suspended. No emails will be handled until resumed.</p></div>';
+        card.style.display = '';
         btn.textContent = 'Resume Agent';
         btn.className = 'pill-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition';
         card.style.borderColor = 'rgba(239,68,68,0.4)';
