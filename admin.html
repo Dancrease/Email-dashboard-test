@@ -212,6 +212,7 @@
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let modalFaqs = [];
+        let clientsMap = {};
 
         async function signInWithGoogle() {
             await supabaseClient.auth.signInWithOAuth({
@@ -246,9 +247,13 @@
             const { data: clients } = await supabaseClient.from('clients').select('*').order('created_at', { ascending: false });
             if (!clients) return;
 
+            // Build lookup map
+            clientsMap = {};
+            clients.forEach(c => clientsMap[c.id] = c);
+
             // Summary stats
             document.getElementById('stat-total-clients').textContent = clients.length;
-            document.getElementById('stat-active').textContent = clients.filter(c => c.is_active).length;
+            document.getElementById('stat-active').textContent = clients.filter(c => c.is_active && !c.admin_paused).length;
             document.getElementById('client-count').textContent = `${clients.length} client${clients.length !== 1 ? 's' : ''} registered`;
 
             // Get email counts for all clients this month
@@ -283,9 +288,9 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="stat-pill ${client.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
-                                <span class="status-dot ${client.is_active ? 'bg-emerald-400' : 'bg-red-400'}"></span>
-                                ${client.is_active ? 'Active' : 'Paused'}
+                            <span class="stat-pill ${client.admin_paused ? 'bg-orange-500/10 text-orange-400' : client.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
+                                <span class="status-dot ${client.admin_paused ? 'bg-orange-400' : client.is_active ? 'bg-emerald-400' : 'bg-red-400'}"></span>
+                                ${client.admin_paused ? 'Admin Paused' : client.is_active ? 'Active' : 'Paused'}
                             </span>
                         </div>
                     </div>
@@ -312,8 +317,8 @@
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-gray-600">Last check: ${lastCheck}</span>
                         <div class="flex items-center gap-2">
-                            <button onclick="toggleClientActive('${client.id}', ${client.is_active})" class="btn-ghost-sm">${client.is_active ? 'Pause' : 'Resume'}</button>
-                            <button onclick="openEditClient(${JSON.stringify(JSON.stringify(client))})" class="btn-ghost-sm">Edit</button>
+                            <button onclick="toggleAdminPause('${client.id}', ${client.admin_paused})" class="btn-ghost-sm" style="${client.admin_paused ? 'color:#fb923c;border-color:rgba(249,115,22,0.3);' : ''}">${client.admin_paused ? 'Release Pause' : 'Admin Pause'}</button>
+                            <button onclick="openEditClient('${client.id}')" class="btn-ghost-sm">Edit</button>
                         </div>
                     </div>
                 `;
@@ -321,8 +326,8 @@
             }
         }
 
-        async function toggleClientActive(clientId, currentState) {
-            await supabaseClient.from('clients').update({ is_active: !currentState }).eq('id', clientId);
+        async function toggleAdminPause(clientId, currentState) {
+            await supabaseClient.from('clients').update({ admin_paused: !currentState }).eq('id', clientId);
             await loadDashboard();
         }
 
@@ -347,8 +352,8 @@
             document.getElementById('modal-overlay').classList.remove('hidden');
         }
 
-        function openEditClient(jsonStr) {
-            const client = JSON.parse(jsonStr);
+        function openEditClient(clientId) {
+            const client = clientsMap[clientId];
             const config = client.config || {};
             document.getElementById('modal-title').textContent = 'Edit Client';
             document.getElementById('edit-client-id').value = client.id;
