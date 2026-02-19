@@ -355,7 +355,7 @@ async function loadHeatmap() {
     });
 
     const maxCount = Math.max(...grid.flat(), 1);
-    const cellSize = 'height:28px;border-radius:4px;';
+    const cellSize = 'height:34px;border-radius:4px;';
 
     let html = '<div style="display:grid;grid-template-columns:36px repeat(' + slots.length + ',1fr);gap:3px;font-size:10px;">';
     // Header row
