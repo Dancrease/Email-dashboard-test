@@ -184,12 +184,16 @@ function updateChart(categories) {
     const pending    = labels.map(l => (categories[l] || {}).pending_approval || 0);
 
     if (categoriesChart) {
-        categoriesChart.data.labels = labels;
-        categoriesChart.data.datasets[0].data = autoReplied;
-        categoriesChart.data.datasets[1].data = escalated;
-        categoriesChart.data.datasets[2].data = pending;
-        categoriesChart.update('none');
-        return;
+        if (categoriesChart.data.datasets.length === 3) {
+            categoriesChart.data.labels = labels;
+            categoriesChart.data.datasets[0].data = autoReplied;
+            categoriesChart.data.datasets[1].data = escalated;
+            categoriesChart.data.datasets[2].data = pending;
+            categoriesChart.update('none');
+            return;
+        }
+        categoriesChart.destroy();
+        categoriesChart = null;
     }
 
     categoriesChart = new Chart(ctx, {
