@@ -5,6 +5,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 let CLIENT_ID = null;
 let categoriesChart = null;
 let volumeChart = null;
+let heatmapBuilt = false;
 let agentIsActive = true;
 
 async function signInWithGoogle() {
@@ -129,6 +130,7 @@ async function loadDashboard() {
             updatePauseUI(client.is_active, client.admin_paused);
             await loadStats();
             await loadVolumeChart();
+            await loadHeatmap();
             await loadPendingEmails();
             await loadRecentEmails();
         }
@@ -251,6 +253,66 @@ function updateChart(categories) {
             }
         }
     });
+}
+
+async function loadHeatmap() {
+    if (heatmapBuilt) return;
+    const from = new Date();
+    from.setDate(from.getDate() - 90);
+
+    const { data: emails } = await supabaseClient.from('emails').select('created_at').eq('client_id', CLIENT_ID).gte('created_at', from.toISOString());
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const slots = [
+        { label: '12–4am', start: 0,  end: 3  },
+        { label: '4–8am',  start: 4,  end: 7  },
+        { label: '8–11am', start: 8,  end: 10 },
+        { label: '11–2pm', start: 11, end: 13 },
+        { label: '2–5pm',  start: 14, end: 16 },
+        { label: '5–8pm',  start: 17, end: 19 },
+        { label: '8pm–12', start: 20, end: 23 },
+    ];
+
+    const grid = Array.from({ length: 7 }, () => Array(slots.length).fill(0));
+    (emails || []).forEach(e => {
+        const d = new Date(e.created_at);
+        const day = (d.getDay() + 6) % 7;
+        const hour = d.getHours();
+        const si = slots.findIndex(s => hour >= s.start && hour <= s.end);
+        if (si !== -1) grid[day][si]++;
+    });
+
+    const maxCount = Math.max(...grid.flat(), 1);
+    const cellSize = 'height:28px;border-radius:4px;';
+
+    let html = '<div style="display:grid;grid-template-columns:36px repeat(' + slots.length + ',1fr);gap:3px;font-size:10px;">';
+    // Header row
+    html += '<div></div>';
+    slots.forEach(s => {
+        html += '<div style="color:#71717a;text-align:center;padding-bottom:4px;white-space:nowrap;overflow:hidden;font-size:9px;">' + s.label + '</div>';
+    });
+    // Data rows
+    dayNames.forEach((day, di) => {
+        html += '<div style="color:#e4e4e7;display:flex;align-items:center;font-size:10px;font-weight:500;">' + day + '</div>';
+        slots.forEach((_, si) => {
+            const count = grid[di][si];
+            const intensity = count / maxCount;
+            const alpha = count === 0 ? 0.06 : 0.12 + intensity * 0.78;
+            const title = count + ' email' + (count !== 1 ? 's' : '');
+            html += '<div title="' + title + '" style="' + cellSize + 'background:rgba(124,58,237,' + alpha.toFixed(2) + ');cursor:default;"></div>';
+        });
+    });
+    html += '</div>';
+    // Legend
+    html += '<div style="display:flex;align-items:center;gap:6px;margin-top:10px;justify-content:flex-end;">';
+    html += '<span style="color:#71717a;font-size:9px;">Less</span>';
+    [0.06, 0.25, 0.45, 0.65, 0.9].forEach(a => {
+        html += '<div style="width:12px;height:12px;border-radius:2px;background:rgba(124,58,237,' + a + ');"></div>';
+    });
+    html += '<span style="color:#71717a;font-size:9px;">More</span></div>';
+
+    document.getElementById('heatmapContainer').innerHTML = html;
+    heatmapBuilt = true;
 }
 
 async function loadVolumeChart() {
