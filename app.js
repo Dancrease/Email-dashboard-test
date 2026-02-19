@@ -165,43 +165,53 @@ async function loadStats() {
     const bellDot = document.getElementById('bell-dot');
     if (bellDot) bellDot.classList.toggle('hidden', !pendingCount || pendingCount === 0);
 
-    // Chart
-    const { data: stats } = await supabaseClient.from('monthly_stats').select('*').eq('client_id', CLIENT_ID).eq('month', currentMonth).single();
-    updateChart(stats?.categories || {});
+    // Chart — query emails grouped by category and status
+    const { data: emailsForChart } = await supabaseClient.from('emails').select('category, status').eq('client_id', CLIENT_ID).gte('created_at', monthStart).in('status', ['auto_replied', 'escalated', 'pending_approval']);
+    const chartData = {};
+    (emailsForChart || []).forEach(e => {
+        if (!chartData[e.category]) chartData[e.category] = { auto_replied: 0, escalated: 0, pending_approval: 0 };
+        chartData[e.category][e.status]++;
+    });
+    updateChart(chartData);
 }
 
 function updateChart(categories) {
     const ctx = document.getElementById('categoriesChart');
     const labels = Object.keys(categories);
-    const data = Object.values(categories);
-    if (labels.length === 0) { labels.push('No data yet'); data.push(0); }
+    if (labels.length === 0) labels.push('No data yet');
+    const autoReplied = labels.map(l => (categories[l] || {}).auto_replied || 0);
+    const escalated  = labels.map(l => (categories[l] || {}).escalated || 0);
+    const pending    = labels.map(l => (categories[l] || {}).pending_approval || 0);
 
     if (categoriesChart) {
         categoriesChart.data.labels = labels;
-        categoriesChart.data.datasets[0].data = data;
+        categoriesChart.data.datasets[0].data = autoReplied;
+        categoriesChart.data.datasets[1].data = escalated;
+        categoriesChart.data.datasets[2].data = pending;
         categoriesChart.update('none');
         return;
     }
-    // First load only — dummy replace marker
-    
+
     categoriesChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Emails',
-                data: data,
-                backgroundColor: ['#7c3aed', '#6d28d9', '#5b21b6', '#4c1d95'],
-                borderRadius: 12,
-                borderSkipped: false
-            }]
+            labels,
+            datasets: [
+                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: 0 },
+                { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 0 },
+                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: 4 },
+            ]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: { color: '#a1a1aa', font: { size: 12 }, boxWidth: 12, boxHeight: 12, borderRadius: 4, useBorderRadius: true, padding: 20 }
+                },
                 tooltip: {
                     backgroundColor: 'rgba(255,255,255,0.95)',
                     titleColor: '#000',
@@ -209,18 +219,19 @@ function updateChart(categories) {
                     borderColor: 'rgba(124,58,237,0.2)',
                     borderWidth: 1,
                     padding: 12,
-                    displayColors: false,
-                    bodyFont: { size: 14, weight: '700' }
+                    bodyFont: { size: 13, weight: '600' }
                 }
             },
             scales: {
                 x: {
+                    stacked: true,
                     beginAtZero: true,
-                    ticks: { color: '#71717a', font: { size: 11 } },
+                    ticks: { color: '#71717a', font: { size: 11 }, stepSize: 1 },
                     grid: { color: 'rgba(255,255,255,0.03)' },
                     border: { display: false }
                 },
                 y: {
+                    stacked: true,
                     ticks: { color: '#e4e4e7', font: { size: 12, weight: '500' } },
                     grid: { display: false },
                     border: { display: false }
