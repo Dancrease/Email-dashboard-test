@@ -134,6 +134,12 @@ async function loadStats() {
     const pct = actionableCount > 0 ? Math.round(((autoRepliedCount || 0) / actionableCount) * 100) : 0;
     document.getElementById('auto-replied-pct').textContent = pct + '% of actionable';
 
+    // Escalated count + % of actionable
+    const { count: escalatedCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).gte('created_at', monthStart).eq('status', 'escalated');
+    document.getElementById('escalated-count').textContent = escalatedCount || 0;
+    const escPct = actionableCount > 0 ? Math.round(((escalatedCount || 0) / actionableCount) * 100) : 0;
+    document.getElementById('escalated-pct').textContent = escPct + '% of actionable';
+
     // Pending
     const { count: pendingCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
     document.getElementById('pending-count').textContent = pendingCount || 0;
