@@ -162,6 +162,8 @@ async function loadStats() {
     // Pending
     const { count: pendingCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
     document.getElementById('pending-count').textContent = pendingCount || 0;
+    const bellDot = document.getElementById('bell-dot');
+    if (bellDot) bellDot.classList.toggle('hidden', !pendingCount || pendingCount === 0);
 
     // Chart
     const { data: stats } = await supabaseClient.from('monthly_stats').select('*').eq('client_id', CLIENT_ID).eq('month', currentMonth).single();
