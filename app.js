@@ -172,14 +172,17 @@ async function loadStats() {
 
 function updateChart(categories) {
     const ctx = document.getElementById('categoriesChart');
-    if (categoriesChart) categoriesChart.destroy();
-    
     const labels = Object.keys(categories);
     const data = Object.values(categories);
-    if (labels.length === 0) {
-        labels.push('No data yet');
-        data.push(0);
+    if (labels.length === 0) { labels.push('No data yet'); data.push(0); }
+
+    if (categoriesChart) {
+        categoriesChart.data.labels = labels;
+        categoriesChart.data.datasets[0].data = data;
+        categoriesChart.update('none');
+        return;
     }
+    // First load only — dummy replace marker
     
     categoriesChart = new Chart(ctx, {
         type: 'bar',
