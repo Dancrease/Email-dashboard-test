@@ -38,11 +38,6 @@ async function toggleAgentPause() {
         updatePauseUI(newState);
     }
     btn.disabled = false;
-} = await supabaseClient.from('clients').select('is_active').eq('id', CLIENT_ID).single();
-    const newState = !client.is_active;
-    await supabaseClient.from('clients').update({ is_active: newState }).eq('id', CLIENT_ID);
-    updatePauseUI(newState);
-    btn.disabled = false;
 }
 
 function updatePauseUI(isActive) {
