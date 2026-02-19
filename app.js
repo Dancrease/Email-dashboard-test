@@ -4,6 +4,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 let CLIENT_ID = null;
 let categoriesChart = null;
+let agentIsActive = true;
 
 async function signInWithGoogle() {
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
