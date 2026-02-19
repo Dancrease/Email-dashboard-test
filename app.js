@@ -6,6 +6,7 @@ let CLIENT_ID = null;
 let categoriesChart = null;
 let volumeChart = null;
 let heatmapBuilt = false;
+let performanceChart = null;
 let agentIsActive = true;
 
 async function signInWithGoogle() {
@@ -131,6 +132,7 @@ async function loadDashboard() {
             await loadStats();
             await loadVolumeChart();
             await loadHeatmap();
+            await loadPerformanceChart();
             await loadPendingEmails();
             await loadRecentEmails();
         }
@@ -253,6 +255,76 @@ function updateChart(categories) {
             }
         }
     });
+}
+
+async function loadPerformanceChart() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const statuses = ['auto_replied', 'escalated', 'pending_approval'];
+    const counts = await Promise.all(statuses.map(s =>
+        supabaseClient.from('emails').select('*', { count: 'exact', head: true })
+            .eq('client_id', CLIENT_ID).eq('status', s).gte('created_at', monthStart)
+            .then(r => r.count || 0)
+    ));
+    const [autoCount, escalatedCount, pendingCount] = counts;
+    const total = autoCount + escalatedCount + pendingCount;
+
+    document.getElementById('perf-total').textContent = total;
+
+    const data = [autoCount, escalatedCount, pendingCount];
+    const colors = ['rgba(16,185,129,0.85)', 'rgba(249,115,22,0.85)', 'rgba(245,158,11,0.85)'];
+    const labels = ['Auto-Replied', 'Escalated', 'Pending'];
+
+    const ctx = document.getElementById('performanceChart');
+    if (performanceChart) {
+        performanceChart.data.datasets[0].data = data;
+        performanceChart.update('none');
+    } else {
+        performanceChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }]
+            },
+            options: {
+                cutout: '74%',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        titleColor: '#000',
+                        bodyColor: '#666',
+                        borderColor: 'rgba(124,58,237,0.2)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: (item) => {
+                                const pct = total > 0 ? Math.round(item.raw / total * 100) : 0;
+                                return `${item.raw} emails (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Custom legend
+    const pcts = data.map(v => total > 0 ? Math.round(v / total * 100) : 0);
+    const legend = document.getElementById('perf-legend');
+    legend.innerHTML = labels.map((l, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0;"></div>
+                <span style="color:#a1a1aa;font-size:12px;">${l}</span>
+            </div>
+            <span style="color:#e4e4e7;font-size:12px;font-weight:600;">${pcts[i]}%</span>
+        </div>
+    `).join('');
 }
 
 async function loadHeatmap() {
