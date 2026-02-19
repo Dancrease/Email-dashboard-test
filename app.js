@@ -209,7 +209,7 @@ function updateChart(categories) {
         data: {
             labels,
             datasets: [
-                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: { topLeft: 8, bottomLeft: 8, topRight: 0, bottomRight: 0 } },
+                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: 8 },
                 { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 8 },
                 { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: 8 },
             ]
