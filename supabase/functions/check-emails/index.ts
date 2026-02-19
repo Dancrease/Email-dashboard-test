@@ -49,11 +49,14 @@ async function processClientEmails(client: any, supabase: any) {
       const { data: existing } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_message_id', email.id).single();
       if (existing) continue;
 
-      const shouldEscalate = checkEscalation(email, client.config);
+      // Check if this thread already has a prior escalated email
+      const { data: priorEscalation } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_thread_id', email.threadId).eq('status', 'escalated').limit(1).maybeSingle();
+      const isFollowUpEscalation = !!priorEscalation;
+
+      const shouldEscalate = isFollowUpEscalation || checkEscalation(email, client.config);
       let aiResponse = null;
       let status = 'pending_approval';
       let category = 'General Inquiry';
-
       let escalatedTo = null;
 
       if (!shouldEscalate) {
@@ -66,11 +69,14 @@ async function processClientEmails(client: any, supabase: any) {
         }
       } else {
         category = await categorizeEmail(email, client);
-        escalatedTo = getEscalationRecipient(category, client.config);
-        // Send holding reply to customer
-        const holdingReply = `Thank you for contacting us. We've received your message and a member of our team will be in touch with you shortly.\n\nBest regards,\n${client.config.business_description || 'Our Team'}`;
-        await sendGmailReply(accessToken, email.from, email.subject, holdingReply, email.threadId);
-        // Forward to the appropriate team member
+        // Follow-ups on escalated threads go to senior contact; first escalations go to category-specific contact
+        escalatedTo = getEscalationRecipient(category, client.config, isFollowUpEscalation);
+        if (!isFollowUpEscalation) {
+          // First escalation only — send holding reply to customer
+          const holdingReply = `Thank you for contacting us. We've received your message and a member of our team will be in touch with you shortly.\n\nBest regards,\n${client.config.business_description || 'Our Team'}`;
+          await sendGmailReply(accessToken, email.from, email.subject, holdingReply, email.threadId);
+        }
+        // Always forward to the appropriate team member
         if (escalatedTo) await forwardEscalatedEmail(accessToken, escalatedTo, email);
         await labelEmail(accessToken, email.id, 'Escalated');
         status = 'escalated';
@@ -158,7 +164,16 @@ async function categorizeEmail(email: any, client: any): Promise<string> {
   return categories[categories.length - 1] || 'General Inquiry';
 }
 
-function getEscalationRecipient(category: string, config: any): string {
+function getEscalationRecipient(category: string, config: any, useSenior: boolean = false): string {
+  const routing = config.escalation_routing || {};
+  // Follow-up on already-escalated thread → senior contact
+  if (useSenior && routing.senior) return routing.senior;
+  // Category-specific routing (exact match, case-insensitive)
+  const match = Object.keys(routing).find(k => k.toLowerCase() === category.toLowerCase());
+  if (match) return routing[match];
+  // Default escalation contact
+  if (routing.default) return routing.default;
+  // Fallback: legacy team_members structure
   const teamMembers = config.team_members || {};
   if (category.toLowerCase().includes('billing') && teamMembers.billing) return teamMembers.billing;
   return teamMembers.manager || '';
