@@ -23,6 +23,37 @@ async function signOut() {
     window.location.reload();
 }
 
+async function toggleAgentPause() {
+    const btn = document.getElementById('pause-btn');
+    btn.textContent = 'Updating...';
+    btn.disabled = true;
+    const { data: client } = await supabaseClient.from('clients').select('is_active').eq('id', CLIENT_ID).single();
+    const newState = !client.is_active;
+    await supabaseClient.from('clients').update({ is_active: newState }).eq('id', CLIENT_ID);
+    updatePauseUI(newState);
+    btn.disabled = false;
+}
+
+function updatePauseUI(isActive) {
+    const banner = document.getElementById('paused-banner');
+    const btn = document.getElementById('pause-btn');
+    const card = document.getElementById('pause-card');
+    const desc = document.getElementById('pause-desc');
+    if (isActive) {
+        banner.classList.add('hidden');
+        btn.textContent = 'Pause Agent';
+        btn.className = 'pill-badge bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition';
+        card.style.borderColor = '';
+        desc.textContent = 'Immediately halt all email processing';
+    } else {
+        banner.classList.remove('hidden');
+        btn.textContent = 'Resume Agent';
+        btn.className = 'pill-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition';
+        card.style.borderColor = 'rgba(239,68,68,0.4)';
+        desc.textContent = 'Agent is paused — click to resume processing';
+    }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await supabaseClient.auth.getSession();
     
@@ -56,6 +87,7 @@ async function loadDashboard() {
         if (client) {
             document.getElementById('company-name').textContent = client.company_name;
             document.getElementById('auto-send-toggle').checked = !client.config.approval_mode;
+            updatePauseUI(client.is_active);
             await loadStats();
             await loadPendingEmails();
             await loadRecentEmails();
