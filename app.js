@@ -28,7 +28,7 @@ async function toggleAgentPause() {
     const btn = document.getElementById('pause-btn');
     btn.textContent = 'Updating...';
     btn.disabled = true;
-    const newState = \!agentIsActive;
+    const newState = !agentIsActive;
     const { error } = await supabaseClient.from('clients').update({ is_active: newState }).eq('id', CLIENT_ID);
     if (error) {
         console.error('Pause toggle failed:', error);
