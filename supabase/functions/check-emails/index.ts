@@ -49,6 +49,19 @@ async function processClientEmails(client: any, supabase: any) {
       const { data: existing } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_message_id', email.id).single();
       if (existing) continue;
 
+      // Auto-reply / OOO detection â€” store but don't reply, prevents loops
+      if (email.isAutoReply) {
+        const deleteAfter = new Date();
+        deleteAfter.setDate(deleteAfter.getDate() + (client.config.data_retention_days || 7));
+        await supabase.from('emails').insert({
+          client_id: client.id, gmail_message_id: email.id, gmail_thread_id: email.threadId,
+          sender: email.from, subject: email.subject, body: email.body,
+          ai_response: null, category: 'Auto-Reply', status: 'auto_reply', escalated_to: null, delete_after: deleteAfter.toISOString()
+        });
+        await supabase.from('clients').update({ last_check: new Date().toISOString() }).eq('id', client.id);
+        continue;
+      }
+
       // Spam check â€” label and store but don't reply
       const spam = await checkSpam(email);
       if (spam) {
