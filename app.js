@@ -114,7 +114,7 @@ async function loadDashboard() {
             const initials = client.company_name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
             document.getElementById('user-initials').textContent = initials;
             document.getElementById('auto-send-toggle').checked = !client.config.approval_mode;
-            updatePauseUI(client.is_active);
+            updatePauseUI(client.is_active, client.admin_paused);
             await loadStats();
             await loadPendingEmails();
             await loadRecentEmails();
