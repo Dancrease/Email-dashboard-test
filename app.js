@@ -67,14 +67,28 @@ async function loadDashboard() {
 
 async function loadStats() {
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthStart = currentMonth + '-01';
+
+    // Total — every email received this month regardless of type
+    const { count: totalCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).gte('created_at', monthStart);
+    document.getElementById('total-emails').textContent = totalCount || 0;
+
+    // Actionable — excludes spam and OOO
+    const { count: actionableCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).gte('created_at', monthStart).in('status', ['auto_replied', 'escalated', 'pending_approval', 'approved', 'rejected']);
+    document.getElementById('actionable-count').textContent = actionableCount || 0;
+
+    // Auto-replied count + % of actionable
+    const { count: autoRepliedCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).gte('created_at', monthStart).eq('status', 'auto_replied');
+    document.getElementById('auto-replied').textContent = autoRepliedCount || 0;
+    const pct = actionableCount > 0 ? Math.round(((autoRepliedCount || 0) / actionableCount) * 100) : 0;
+    document.getElementById('auto-replied-pct').textContent = pct + '% of actionable';
+
+    // Pending
+    const { count: pendingCount } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
+    document.getElementById('pending-count').textContent = pendingCount || 0;
+
+    // Chart
     const { data: stats } = await supabaseClient.from('monthly_stats').select('*').eq('client_id', CLIENT_ID).eq('month', currentMonth).single();
-    
-    document.getElementById('total-emails').textContent = stats?.total_emails || 0;
-    document.getElementById('auto-replied').textContent = stats?.auto_replied || 0;
-    
-    const { count } = await supabaseClient.from('emails').select('*', { count: 'exact', head: true }).eq('client_id', CLIENT_ID).eq('status', 'pending_approval');
-    document.getElementById('pending-count').textContent = count || 0;
-    
     updateChart(stats?.categories || {});
 }
 
