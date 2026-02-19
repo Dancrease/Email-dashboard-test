@@ -172,7 +172,7 @@ async function loadPendingEmails() {
 }
 
 async function loadRecentEmails() {
-    const { data: emails } = await supabaseClient.from('emails').select('*').eq('client_id', CLIENT_ID).in('status', ['auto_replied', 'approved', 'rejected', 'escalated', 'spam']).order('created_at', { ascending: false }).limit(10);
+    const { data: emails } = await supabaseClient.from('emails').select('*').eq('client_id', CLIENT_ID).in('status', ['auto_replied', 'approved', 'rejected', 'escalated', 'spam', 'auto_reply']).order('created_at', { ascending: false }).limit(10);
     const container = document.getElementById('recent-emails-container');
     
     if (!emails || emails.length === 0) {
@@ -185,7 +185,8 @@ async function loadRecentEmails() {
         'approved': { class: 'bg-blue-500/10 text-blue-400', label: 'Approved' },
         'rejected': { class: 'bg-red-500/10 text-red-400', label: 'Rejected' },
         'escalated': { class: 'bg-amber-500/10 text-amber-400', label: 'Escalated' },
-        'spam': { class: 'bg-red-900/20 text-red-400', label: 'Spam' }
+        'spam': { class: 'bg-red-900/20 text-red-400', label: 'Spam' },
+        'auto_reply': { class: 'bg-gray-500/10 text-gray-400', label: 'OOO' }
     };
     
     container.innerHTML = `<div class="glass-card rounded-3xl overflow-hidden">${emails.map(email => `
