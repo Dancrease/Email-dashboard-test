@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Email Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0a0a0b; background-image: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08) 0%, transparent 50%); min-height: 100vh; }
+        .glass-card { background: rgba(23, 23, 26, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 10px 30px -10px rgba(0, 0, 0, 0.5); transition: all 200ms; border-radius: 24px; }
+        .btn-primary { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: white; font-weight: 600; padding: 14px 32px; border-radius: 20px; cursor: pointer; transition: all 200ms; border: none; }
+        .btn-primary:hover { box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); transform: translateY(-1px); }
+        .logo-container { position: relative; width: 36px; height: 36px; }
+        .logo-border { position: absolute; inset: 0; border-radius: 10px; border: 2px solid transparent; background: linear-gradient(#0a0a0b, #0a0a0b) padding-box, linear-gradient(135deg, rgba(6, 182, 212, 0.5) 0%, rgba(59, 130, 246, 0.5) 50%, rgba(168, 85, 247, 0.5) 100%) border-box; }
+        .logo-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; color: #fff; }
+        .logo-sparkle { position: absolute; top: -3px; right: -3px; }
+        .sparkle-dot { position: absolute; width: 2.5px; height: 2.5px; background: #fff; border-radius: 50%; animation: sparkle 2s ease-in-out infinite; }
+        .sparkle-dot:nth-child(2) { animation-delay: 0.3s; }
+        .sparkle-dot:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes sparkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; transform: scale(1.3); } }
+        .top-bar { background: rgba(23, 23, 26, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+        .section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; color: #71717a; }
+        .form-label { font-size: 13px; font-weight: 500; color: #a1a1aa; margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 14px; color: #e4e4e7; font-size: 14px; outline: none; transition: border-color 200ms; }
+        .form-input:focus { border-color: rgba(124, 58, 237, 0.5); }
+        .form-input::placeholder { color: #52525b; }
+        textarea.form-input { resize: vertical; min-height: 80px; }
+        select.form-input { cursor: pointer; }
+        select.form-input option { background: #1c1c1f; }
+        .tag { display: inline-flex; align-items: center; gap: 6px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: #a78bfa; }
+        .tag-remove { cursor: pointer; opacity: 0.6; }
+        .tag-remove:hover { opacity: 1; }
+        .faq-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+        .btn-ghost-sm { background: transparent; color: #a1a1aa; font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: all 200ms; }
+        .btn-ghost-sm:hover { background: rgba(255,255,255,0.05); color: #e4e4e7; }
+        .btn-danger-sm { background: transparent; color: #f87171; font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.2); cursor: pointer; transition: all 200ms; }
+        .btn-danger-sm:hover { background: rgba(239,68,68,0.1); }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .dropdown-enter { animation: dropIn 150ms ease-out; }
+        #save-toast { transition: opacity 300ms; }
+    </style>
+</head>
+<body class="text-gray-100">
+    <nav class="top-bar sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="logo-container"><div class="logo-border"></div><div class="logo-text">AI</div><div class="logo-sparkle"><div class="sparkle-dot" style="top:0;right:8px;"></div><div class="sparkle-dot" style="top:4px;right:2px;"></div><div class="sparkle-dot" style="top:-2px;right:14px;"></div></div></div>
+                <span class="font-semibold">Email Agent</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="relative">
+                    <button onclick="toggleUserMenu()" id="user-avatar-btn" class="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold text-sm">
+                        <span id="user-initials">—</span>
+                    </button>
+                    <div id="user-dropdown" class="hidden absolute right-0 mt-2 glass-card py-2 z-50" style="min-width:180px;">
+                        <a href="index.html" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition" style="border-radius:12px;margin:0 4px;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            Dashboard
+                        </a>
+                        <div class="border-t border-white/5 my-1 mx-3"></div>
+                        <button onclick="signOut()" class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition text-left" style="border-radius:12px;margin:0 4px;width:calc(100% - 8px);background:none;border:none;cursor:pointer;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-6 py-8">
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-white mb-1">Settings</h1>
+            <p class="text-sm text-gray-500">Configure your AI email agent</p>
+        </div>
+
+        <!-- Agent Profile -->
+        <div class="glass-card p-7 mb-5">
+            <div class="section-title mb-6">AGENT PROFILE</div>
+            <div class="grid grid-cols-1 gap-5">
+                <div>
+                    <label class="form-label">Business Name</label>
+                    <input type="text" id="company-name" class="form-input" readonly style="opacity:0.5;cursor:default;">
+                </div>
+                <div>
+                    <label class="form-label">Monitored Email</label>
+                    <input type="text" id="monitored-email" class="form-input" readonly style="opacity:0.5;cursor:default;">
+                </div>
+                <div>
+                    <label class="form-label">Business Description</label>
+                    <textarea id="business-description" class="form-input" placeholder="e.g. Acme Plumbing — a plumbing company serving London..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Business Hours</label>
+                        <input type="text" id="business-hours" class="form-input" placeholder="e.g. Mon–Fri 9am–5pm">
+                    </div>
+                    <div>
+                        <label class="form-label">Communication Tone</label>
+                        <select id="tone" class="form-input">
+                            <option value="professional">Professional</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="formal">Formal</option>
+                            <option value="casual">Casual</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="glass-card p-7 mb-5">
+            <div class="flex items-center justify-between mb-6">
+                <div class="section-title">FAQS</div>
+                <button onclick="addFaq()" class="btn-ghost-sm">+ Add FAQ</button>
+            </div>
+            <div id="faqs-container"></div>
+            <p id="no-faqs" class="text-sm text-gray-600 text-center py-4 hidden">No FAQs yet. Add one above.</p>
+        </div>
+
+        <!-- Escalation -->
+        <div class="glass-card p-7 mb-5">
+            <div class="section-title mb-6">ESCALATION</div>
+            <div class="grid grid-cols-1 gap-5">
+                <div>
+                    <label class="form-label">Trigger Keywords <span class="text-gray-600 font-normal normal-case">(comma separated)</span></label>
+                    <input type="text" id="escalation-keywords" class="form-input" placeholder="e.g. refund, complaint, cancel, urgent">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Default Escalation Email</label>
+                        <input type="email" id="escalation-default" class="form-input" placeholder="manager@yourcompany.com">
+                    </div>
+                    <div>
+                        <label class="form-label">Senior Contact <span class="text-gray-600 font-normal normal-case">(follow-ups)</span></label>
+                        <input type="email" id="escalation-senior" class="form-input" placeholder="senior@yourcompany.com">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced -->
+        <div class="glass-card p-7 mb-8">
+            <div class="section-title mb-6">ADVANCED</div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label">Data Retention <span class="text-gray-600 font-normal normal-case">(days)</span></label>
+                    <input type="number" id="data-retention" class="form-input" min="1" max="365" placeholder="7">
+                </div>
+                <div>
+                    <label class="form-label">Monthly Email Limit</label>
+                    <input type="number" id="email-limit" class="form-input" min="1" placeholder="500">
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button onclick="saveSettings()" class="btn-primary">Save Settings</button>
+            <span id="save-toast" class="text-sm text-emerald-400 opacity-0">Saved!</span>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://zkquexmmbstiakfhmfvf.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcXVleG1tYnN0aWFrZmhtZnZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjEyMjAsImV4cCI6MjA4NjkzNzIyMH0.W5EmisLiMfQtIk93YlbtS3zsoLCtq7JQYe3zsXwHBdk';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let CLIENT_ID = null;
+        let currentConfig = {};
+        let faqs = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { window.location.href = 'index.html'; return; }
+
+            const { data: client } = await supabaseClient.from('clients').select('*').eq('monitored_email', session.user.email).single();
+            if (!client) { window.location.href = 'index.html'; return; }
+
+            CLIENT_ID = client.id;
+            currentConfig = client.config || {};
+
+            // Set avatar initials
+            const initials = client.company_name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+            document.getElementById('user-initials').textContent = initials;
+
+            // Populate fields
+            document.getElementById('company-name').value = client.company_name || '';
+            document.getElementById('monitored-email').value = client.monitored_email || '';
+            document.getElementById('business-description').value = currentConfig.business_description || '';
+            document.getElementById('business-hours').value = currentConfig.business_hours || '';
+            document.getElementById('tone').value = (currentConfig.tone || 'professional').toLowerCase();
+
+            // Escalation
+            document.getElementById('escalation-keywords').value = (currentConfig.escalation_keywords || []).join(', ');
+            document.getElementById('escalation-default').value = (currentConfig.escalation_routing || {}).default || '';
+            document.getElementById('escalation-senior').value = (currentConfig.escalation_routing || {}).senior || '';
+
+            // Advanced
+            document.getElementById('data-retention').value = currentConfig.data_retention_days || 7;
+            document.getElementById('email-limit').value = client.email_limit || 500;
+
+            // FAQs
+            faqs = JSON.parse(JSON.stringify(currentConfig.faqs || []));
+            renderFaqs();
+        });
+
+        function renderFaqs() {
+            const container = document.getElementById('faqs-container');
+            const noFaqs = document.getElementById('no-faqs');
+            container.innerHTML = '';
+            if (faqs.length === 0) { noFaqs.classList.remove('hidden'); return; }
+            noFaqs.classList.add('hidden');
+            faqs.forEach((faq, i) => {
+                const div = document.createElement('div');
+                div.className = 'faq-item';
+                div.innerHTML = `
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <span class="text-xs font-semibold text-purple-400 uppercase tracking-wide mt-2">FAQ ${i+1}</span>
+                        <button onclick="removeFaq(${i})" class="btn-danger-sm">Remove</button>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Question</label>
+                        <input type="text" class="form-input" value="${escHtml(faq.question || '')}" oninput="faqs[${i}].question = this.value" placeholder="e.g. What are your opening hours?">
+                    </div>
+                    <div>
+                        <label class="form-label">Answer</label>
+                        <textarea class="form-input" oninput="faqs[${i}].answer = this.value" placeholder="e.g. We're open Mon–Fri 9am–5pm">${escHtml(faq.answer || '')}</textarea>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function escHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function addFaq() {
+            faqs.push({ question: '', answer: '' });
+            renderFaqs();
+            document.getElementById('faqs-container').lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function removeFaq(i) {
+            faqs.splice(i, 1);
+            renderFaqs();
+        }
+
+        async function saveSettings() {
+            const saveBtn = document.querySelector('button[onclick="saveSettings()"]');
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
+
+            const keywords = document.getElementById('escalation-keywords').value
+                .split(',').map(k => k.trim()).filter(k => k.length > 0);
+
+            const newConfig = {
+                ...currentConfig,
+                business_description: document.getElementById('business-description').value,
+                business_hours: document.getElementById('business-hours').value,
+                tone: document.getElementById('tone').value,
+                faqs: faqs.filter(f => f.question || f.answer),
+                escalation_keywords: keywords,
+                escalation_routing: {
+                    ...((currentConfig.escalation_routing) || {}),
+                    default: document.getElementById('escalation-default').value,
+                    senior: document.getElementById('escalation-senior').value,
+                }
+            };
+
+            const emailLimit = parseInt(document.getElementById('email-limit').value) || 500;
+            newConfig.data_retention_days = parseInt(document.getElementById('data-retention').value) || 7;
+
+            const { error } = await supabaseClient.from('clients').update({
+                config: newConfig,
+                email_limit: emailLimit
+            }).eq('id', CLIENT_ID);
+
+            saveBtn.textContent = 'Save Settings';
+            saveBtn.disabled = false;
+
+            if (!error) {
+                currentConfig = newConfig;
+                const toast = document.getElementById('save-toast');
+                toast.style.opacity = '1';
+                setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+            } else {
+                alert('Save failed: ' + error.message);
+            }
+        }
+
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('user-dropdown');
+            dropdown.classList.toggle('hidden');
+            if (!dropdown.classList.contains('hidden')) {
+                dropdown.classList.remove('dropdown-enter');
+                void dropdown.offsetWidth;
+                dropdown.classList.add('dropdown-enter');
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            const btn = document.getElementById('user-avatar-btn');
+            const dropdown = document.getElementById('user-dropdown');
+            if (dropdown && !dropdown.classList.contains('hidden') && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        async function signOut() {
+            await supabaseClient.auth.signOut();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
