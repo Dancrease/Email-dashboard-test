@@ -49,8 +49,9 @@ async function processClientEmails(client: any, supabase: any) {
       const { data: existing } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_message_id', email.id).single();
       if (existing) continue;
 
-      // Auto-reply / OOO detection â€” store but don't reply, prevents loops
+      // Auto-reply / OOO detection â€” label, store, show in dashboard but don't reply, prevents loops
       if (email.isAutoReply) {
+        await labelEmail(accessToken, email.id, 'Auto-Reply');
         const deleteAfter = new Date();
         deleteAfter.setDate(deleteAfter.getDate() + (client.config.data_retention_days || 7));
         await supabase.from('emails').insert({
