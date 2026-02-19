@@ -49,6 +49,23 @@ async function processClientEmails(client: any, supabase: any) {
       const { data: existing } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_message_id', email.id).single();
       if (existing) continue;
 
+      // Spam check â€” label and store but don't reply
+      const spam = await checkSpam(email);
+      if (spam) {
+        await labelEmail(accessToken, email.id, 'Spam-Detected');
+        const deleteAfter = new Date();
+        deleteAfter.setDate(deleteAfter.getDate() + (client.config.data_retention_days || 7));
+        await supabase.from('emails').insert({
+          client_id: client.id, gmail_message_id: email.id, gmail_thread_id: email.threadId,
+          sender: email.from, subject: email.subject, body: email.body,
+          ai_response: null, category: 'Spam', status: 'spam', escalated_to: null, delete_after: deleteAfter.toISOString()
+        });
+        await updateMonthlyStats(supabase, client.id, currentMonth, 'Spam', 'spam');
+        await supabase.from('clients').update({ current_month_count: client.current_month_count + 1, last_check: new Date().toISOString() }).eq('id', client.id);
+        processed.push({ email: email.subject, status: 'spam', category: 'Spam' });
+        continue;
+      }
+
       // Check if this thread already has a prior escalated email
       const { data: priorEscalation } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_thread_id', email.threadId).eq('status', 'escalated').limit(1).maybeSingle();
       const isFollowUpEscalation = !!priorEscalation;
@@ -72,7 +89,7 @@ async function processClientEmails(client: any, supabase: any) {
         // Follow-ups on escalated threads go to senior contact; first escalations go to category-specific contact
         escalatedTo = getEscalationRecipient(category, client.config, isFollowUpEscalation);
         if (!isFollowUpEscalation) {
-          // First escalation only — send holding reply to customer
+          // First escalation only â€” send holding reply to customer
           const holdingReply = `Thank you for contacting us. We've received your message and a member of our team will be in touch with you shortly.\n\nBest regards,\n${client.config.business_description || 'Our Team'}`;
           await sendGmailReply(accessToken, email.from, email.subject, holdingReply, email.threadId);
         }
@@ -166,7 +183,7 @@ async function categorizeEmail(email: any, client: any): Promise<string> {
 
 function getEscalationRecipient(category: string, config: any, useSenior: boolean = false): string {
   const routing = config.escalation_routing || {};
-  // Follow-up on already-escalated thread → senior contact
+  // Follow-up on already-escalated thread â†’ senior contact
   if (useSenior && routing.senior) return routing.senior;
   // Category-specific routing (exact match, case-insensitive)
   const match = Object.keys(routing).find(k => k.toLowerCase() === category.toLowerCase());
@@ -188,6 +205,17 @@ async function forwardEscalatedEmail(accessToken: string, to: string, email: any
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ raw: encoded })
   });
+}
+
+async function checkSpam(email: any): Promise<boolean> {
+  const prompt = `Is the following email spam, a bulk promotional message, an automated bot message, or completely irrelevant to a genuine customer enquiry? Reply with only YES or NO.\n\nSubject: ${email.subject}\nFrom: ${email.from}\nBody: ${email.body.substring(0, 500)}`;
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 5, messages: [{ role: 'user', content: prompt }] })
+  });
+  const data = await response.json();
+  return data.content[0].text.trim().toUpperCase().startsWith('YES');
 }
 
 async function updateMonthlyStats(supabase: any, clientId: string, month: string, category: string, status: string) {
