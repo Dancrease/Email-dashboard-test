@@ -4,6 +4,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 let CLIENT_ID = null;
 let categoriesChart = null;
+let volumeChart = null;
 let agentIsActive = true;
 
 async function signInWithGoogle() {
@@ -127,6 +128,7 @@ async function loadDashboard() {
             document.getElementById('auto-send-toggle').checked = !client.config.approval_mode;
             updatePauseUI(client.is_active, client.admin_paused);
             await loadStats();
+            await loadVolumeChart();
             await loadPendingEmails();
             await loadRecentEmails();
         }
@@ -207,9 +209,9 @@ function updateChart(categories) {
         data: {
             labels,
             datasets: [
-                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: { topLeft: 8, bottomLeft: 8, topRight: 0, bottomRight: 0 } },
-                { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 0 },
-                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: { topLeft: 0, bottomLeft: 0, topRight: 8, bottomRight: 8 } },
+                { label: 'Auto-Replied', data: autoReplied, backgroundColor: 'rgba(16,185,129,0.8)',  borderSkipped: false, borderRadius: 8 },
+                { label: 'Escalated',   data: escalated,   backgroundColor: 'rgba(249,115,22,0.8)',  borderSkipped: false, borderRadius: 8 },
+                { label: 'Pending',     data: pending,     backgroundColor: 'rgba(245,158,11,0.8)',  borderSkipped: false, borderRadius: 8 },
             ]
         },
         options: {
@@ -248,6 +250,103 @@ function updateChart(categories) {
                 }
             }
         }
+    });
+}
+
+async function loadVolumeChart() {
+    const days = 30;
+    const now = new Date();
+    const from = new Date(now);
+    from.setDate(from.getDate() - days + 1);
+    from.setHours(0, 0, 0, 0);
+
+    const { data: emails } = await supabaseClient.from('emails').select('created_at').eq('client_id', CLIENT_ID).gte('created_at', from.toISOString());
+
+    const buckets = {};
+    for (let i = 0; i < days; i++) {
+        const d = new Date(from);
+        d.setDate(d.getDate() + i);
+        buckets[d.toISOString().slice(0, 10)] = 0;
+    }
+    (emails || []).forEach(e => {
+        const day = e.created_at.slice(0, 10);
+        if (buckets[day] !== undefined) buckets[day]++;
+    });
+
+    const labels = Object.keys(buckets).map(d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+    const data = Object.values(buckets);
+
+    const ctx = document.getElementById('volumeChart');
+    if (volumeChart) {
+        volumeChart.data.labels = labels;
+        volumeChart.data.datasets[0].data = data;
+        volumeChart.update('none');
+        return;
+    }
+
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 180);
+    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.35)');
+    gradient.addColorStop(1, 'rgba(124, 58, 237, 0)');
+
+    volumeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                borderColor: '#7c3aed',
+                borderWidth: 2.5,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#7c3aed',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#000',
+                    bodyColor: '#666',
+                    borderColor: 'rgba(124,58,237,0.2)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: { label: (item) => `${item.raw} email${item.raw !== 1 ? 's' : ''}` }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#71717a', font: { size: 11 }, maxTicksLimit: 8, maxRotation: 0 },
+                    grid: { display: false },
+                    border: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#71717a', font: { size: 11 }, stepSize: 1, precision: 0 },
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    border: { display: false }
+                }
+            }
+        },
+        plugins: [{
+            id: 'glowLine',
+            beforeDatasetsDraw(chart) {
+                chart.ctx.save();
+                chart.ctx.shadowColor = 'rgba(124, 58, 237, 0.7)';
+                chart.ctx.shadowBlur = 16;
+            },
+            afterDatasetsDraw(chart) {
+                chart.ctx.restore();
+            }
+        }]
     });
 }
 
