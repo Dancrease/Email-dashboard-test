@@ -159,7 +159,10 @@ function checkEscalation(email: any, config: any): boolean {
 }
 
 async function generateAIResponse(email: any, client: any): Promise<string> {
-  const prompt = `You are a customer service AI assistant for ${client.config.business_description}.\n\nBusiness Hours: ${client.config.business_hours}\nCommunication Tone: ${client.config.tone}\n\nFAQs:\n${client.config.faqs?.map((faq: any) => `Q: ${faq.question}\\nA: ${faq.answer}`).join('\\n\\n')}\n\nCustomer Email:\nFrom: ${email.from}\nSubject: ${email.subject}\nBody: ${email.body}\n\nPlease write a helpful, ${client.config.tone} response to this customer email. Be concise and professional.`;
+  const customInstructions = client.config.ai_instructions
+    ? `\n\nClient-Specific Instructions:\n${client.config.ai_instructions}`
+    : '';
+  const prompt = `You are a customer service AI assistant for ${client.config.business_description}.\n\nBusiness Hours: ${client.config.business_hours}\nCommunication Tone: ${client.config.tone}\n\nFAQs:\n${client.config.faqs?.map((faq: any) => `Q: ${faq.question}\\nA: ${faq.answer}`).join('\\n\\n')}${customInstructions}\n\nGuidelines:\n- Keep replies concise — answer what was asked, do not pad the response\n- Only use information from the FAQs above — never invent details or contact info not listed\n- Do not include a phone number or contact CTA unless the customer specifically asked how to reach someone\n\nCustomer Email:\nFrom: ${email.from}\nSubject: ${email.subject}\nBody: ${email.body}\n\nWrite a helpful, ${client.config.tone} response to this customer email.`;
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
