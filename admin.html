@@ -208,9 +208,9 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
-                        <input type="checkbox" id="f-approval-mode" class="w-4 h-4 accent-amber-500">
+                        <input type="checkbox" id="f-approval-mode" class="w-4 h-4 accent-violet-500">
                         <div>
-                            <label for="f-approval-mode" class="text-sm font-medium text-gray-300 cursor-pointer">Approval mode — generate replies but hold for review, nothing is sent automatically</label>
+                            <label for="f-approval-mode" class="text-sm font-medium text-gray-300 cursor-pointer">Shadow Mode — silently collect emails and AI responses, nothing is sent or actioned</label>
                         </div>
                     </div>
                 </div>
@@ -307,11 +307,12 @@
                                 <div class="text-xs text-gray-500">${escHtml(client.monitored_email)}</div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="stat-pill ${client.admin_paused ? 'bg-orange-500/10 text-orange-400' : client.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
                                 <span class="status-dot ${client.admin_paused ? 'bg-orange-400' : client.is_active ? 'bg-emerald-400' : 'bg-red-400'}"></span>
                                 ${client.admin_paused ? 'Admin Paused' : client.is_active ? 'Active' : 'Paused'}
                             </span>
+                            ${client.config?.approval_mode ? '<span class="stat-pill bg-violet-500/10 text-violet-400"><span class="status-dot bg-violet-400"></span>Shadow Mode</span>' : ''}
                         </div>
                     </div>
 
@@ -451,10 +452,9 @@
                     senior: document.getElementById('f-esc-senior').value,
                 },
                 data_retention_days: parseInt(document.getElementById('f-retention').value) || 7,
-                approval_mode: false,
+                approval_mode: document.getElementById('f-approval-mode').checked,
                 categories: ['General Inquiry', 'Billing', 'Scheduling', 'Emergency Service', 'Pricing Questions'],
                 ai_instructions: document.getElementById('f-ai-instructions').value.trim() || null,
-                approval_mode: document.getElementById('f-approval-mode').checked,
             };
 
             const payload = {
