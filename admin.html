@@ -240,7 +240,8 @@
             if (!session) return;
 
             if (session.user.email !== ADMIN_EMAIL) {
-                document.getElementById('login-screen').innerHTML = '<div class="min-h-screen flex items-center justify-center"><div class="glass-card p-12 text-center max-w-sm"><p class="text-red-400 font-semibold mb-4">Access Denied</p><p class="text-gray-500 text-sm">This portal is restricted.</p></div></div>';
+                await supabaseClient.auth.signOut();
+                document.getElementById('login-screen').querySelector('p.text-sm').textContent = `Signed in as ${session.user.email} — please sign in with the admin account.`;
                 return;
             }
 
