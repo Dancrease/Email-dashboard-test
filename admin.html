@@ -199,10 +199,20 @@
                     <p id="modal-no-faqs" class="text-sm text-gray-600 text-center py-2">No FAQs yet.</p>
                 </div>
 
-                <!-- Active toggle -->
-                <div class="flex items-center gap-3 mb-7 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
-                    <input type="checkbox" id="f-active" checked class="w-4 h-4 accent-purple-500">
-                    <label for="f-active" class="text-sm font-medium text-gray-300 cursor-pointer">Active — agent will process emails for this client</label>
+                <!-- Toggles -->
+                <div class="flex flex-col gap-3 mb-7">
+                    <div class="flex items-center gap-3 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                        <input type="checkbox" id="f-active" checked class="w-4 h-4 accent-purple-500">
+                        <div>
+                            <label for="f-active" class="text-sm font-medium text-gray-300 cursor-pointer">Active — agent will process emails for this client</label>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                        <input type="checkbox" id="f-approval-mode" class="w-4 h-4 accent-amber-500">
+                        <div>
+                            <label for="f-approval-mode" class="text-sm font-medium text-gray-300 cursor-pointer">Approval mode — generate replies but hold for review, nothing is sent automatically</label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-3">
@@ -358,6 +368,7 @@
             document.getElementById('f-esc-senior').value = '';
             document.getElementById('f-ai-instructions').value = '';
             document.getElementById('f-active').checked = true;
+            document.getElementById('f-approval-mode').checked = false;
             modalFaqs = [];
             renderModalFaqs();
             document.getElementById('modal-overlay').classList.remove('hidden');
@@ -381,6 +392,7 @@
             document.getElementById('f-esc-senior').value = (config.escalation_routing || {}).senior || '';
             document.getElementById('f-ai-instructions').value = config.ai_instructions || '';
             document.getElementById('f-active').checked = client.is_active;
+            document.getElementById('f-approval-mode').checked = config.approval_mode || false;
             modalFaqs = JSON.parse(JSON.stringify(config.faqs || []));
             renderModalFaqs();
             document.getElementById('modal-overlay').classList.remove('hidden');
@@ -442,6 +454,7 @@
                 approval_mode: false,
                 categories: ['General Inquiry', 'Billing', 'Scheduling', 'Emergency Service', 'Pricing Questions'],
                 ai_instructions: document.getElementById('f-ai-instructions').value.trim() || null,
+                approval_mode: document.getElementById('f-approval-mode').checked,
             };
 
             const payload = {
