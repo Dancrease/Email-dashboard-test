@@ -9,7 +9,7 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 Deno.serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { data: clients, error: clientsError } = await supabase.from('clients').select('*').eq('is_active', true);
+    const { data: clients, error: clientsError } = await supabase.from('clients').select('*').eq('is_active', true).eq('admin_paused', false);
     if (clientsError) throw clientsError;
     const results = [];
     for (const client of (clients as any[])) {
@@ -49,9 +49,9 @@ async function processClientEmails(client: any, supabase: any) {
       const { data: existing } = await supabase.from('emails').select('id').eq('client_id', client.id).eq('gmail_message_id', email.id).single();
       if (existing) continue;
 
-      // Auto-reply / OOO detection â€” label, store, show in dashboard but don't reply, prevents loops
+      // Auto-reply / OOO detection — label, store, show in dashboard but don't reply, prevents loops
       if (email.isAutoReply) {
-        await labelEmail(accessToken, email.id, 'Auto-Reply');
+        await labelEmail(accessToken, email.id, 'OOO');
         const deleteAfter = new Date();
         deleteAfter.setDate(deleteAfter.getDate() + (client.config.data_retention_days || 7));
         await supabase.from('emails').insert({
@@ -63,8 +63,8 @@ async function processClientEmails(client: any, supabase: any) {
         continue;
       }
 
-      // Spam check â€” label and store but don't reply
-      const spam = await checkSpam(email);
+      // Spam check — label and store but don't reply
+      const spam = await checkSpam(email, client);
       if (spam) {
         await labelEmail(accessToken, email.id, 'Spam-Detected');
         const deleteAfter = new Date();
@@ -103,7 +103,7 @@ async function processClientEmails(client: any, supabase: any) {
         // Follow-ups on escalated threads go to senior contact; first escalations go to category-specific contact
         escalatedTo = getEscalationRecipient(category, client.config, isFollowUpEscalation);
         if (!isFollowUpEscalation) {
-          // First escalation only â€” send holding reply to customer
+          // First escalation only — send holding reply to customer
           const holdingReply = `Thank you for contacting us. We've received your message and a member of our team will be in touch with you shortly.\n\nBest regards,\n${client.config.business_description || 'Our Team'}`;
           await sendGmailReply(accessToken, email.from, email.subject, holdingReply, email.threadId);
         }
@@ -197,7 +197,7 @@ async function categorizeEmail(email: any, client: any): Promise<string> {
 
 function getEscalationRecipient(category: string, config: any, useSenior: boolean = false): string {
   const routing = config.escalation_routing || {};
-  // Follow-up on already-escalated thread â†’ senior contact
+  // Follow-up on already-escalated thread → senior contact
   if (useSenior && routing.senior) return routing.senior;
   // Category-specific routing (exact match, case-insensitive)
   const match = Object.keys(routing).find(k => k.toLowerCase() === category.toLowerCase());
@@ -221,8 +221,9 @@ async function forwardEscalatedEmail(accessToken: string, to: string, email: any
   });
 }
 
-async function checkSpam(email: any): Promise<boolean> {
-  const prompt = `Is the following email spam, a bulk promotional message, an automated bot message, or completely irrelevant to a genuine customer enquiry? Reply with only YES or NO.\n\nSubject: ${email.subject}\nFrom: ${email.from}\nBody: ${email.body.substring(0, 500)}`;
+async function checkSpam(email: any, client: any): Promise<boolean> {
+  const businessContext = client.config.business_description || 'a business';
+  const prompt = `The following email was sent to ${businessContext}. Is it clearly spam, a bulk promotional message, or an automated bot message? Genuine customer questions (e.g. about hours, prices, or services) are NOT spam, even if short or lacking a subject. Reply with only YES or NO.\n\nSubject: ${email.subject}\nFrom: ${email.from}\nBody: ${email.body.substring(0, 500)}`;
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
