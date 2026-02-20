@@ -38,13 +38,7 @@ export async function fetchNewEmails(accessToken: string, lastCheckTime?: string
     const headers = msgData.payload.headers;
     const from = headers.find((h: any) => h.name === 'From')?.value || '';
     const subject = headers.find((h: any) => h.name === 'Subject')?.value || 'Thanks for getting in touch';
-    let body = '';
-    if (msgData.payload.body.data) {
-      body = atob(msgData.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-    } else if (msgData.payload.parts) {
-      const textPart = msgData.payload.parts.find((p: any) => p.mimeType === 'text/plain');
-      if (textPart?.body?.data) body = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-    }
+    const body = extractBody(msgData.payload);
 
     const autoSubmitted = headers.find((h: any) => h.name.toLowerCase() === 'auto-submitted')?.value || '';
     const precedence = headers.find((h: any) => h.name.toLowerCase() === 'precedence')?.value || '';
@@ -72,6 +66,54 @@ export async function sendGmailReply(accessToken: string, to: string, subject: s
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ raw: encodedEmail, threadId })
   });
+}
+
+function decodeBase64(data: string): string {
+  return atob(data.replace(/-/g, '+').replace(/_/g, '/'));
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function extractBody(payload: any): string {
+  // Simple single-part message
+  if (payload.body?.data) {
+    const decoded = decodeBase64(payload.body.data);
+    return payload.mimeType === 'text/html' ? stripHtml(decoded) : decoded;
+  }
+  if (!payload.parts) return '';
+
+  // Prefer text/plain in direct parts
+  const plainPart = payload.parts.find((p: any) => p.mimeType === 'text/plain');
+  if (plainPart?.body?.data) return decodeBase64(plainPart.body.data);
+
+  // Recurse into nested multipart (e.g. multipart/alternative inside multipart/mixed)
+  for (const part of payload.parts) {
+    if (part.mimeType?.startsWith('multipart/')) {
+      const nested = extractBody(part);
+      if (nested) return nested;
+    }
+  }
+
+  // Fall back to HTML
+  const htmlPart = payload.parts.find((p: any) => p.mimeType === 'text/html');
+  if (htmlPart?.body?.data) return stripHtml(decodeBase64(htmlPart.body.data));
+
+  return '';
 }
 
 export async function labelEmail(accessToken: string, messageId: string, labelName: string = 'AI-Handled'): Promise<void> {
