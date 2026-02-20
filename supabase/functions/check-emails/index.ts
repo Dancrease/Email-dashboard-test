@@ -182,7 +182,7 @@ async function categorizeEmail(email: any, client: any): Promise<string> {
   }
 
   try {
-    const prompt = `Categorise this customer email into exactly one of these categories: ${categories.join(', ')}.\n\nEmail Subject: ${email.subject}\nEmail Body: ${email.body}\n\nReply with ONLY the category name, nothing else.`;
+    const prompt = `Categorise this customer email into exactly one of these categories: ${categories.join(', ')}.\n\nRules:\n- Categorise based on the email's subject matter, not its tone or urgency\n- A frustrated or angry email is not automatically an emergency — categorise by what they are actually asking about\n- If the email fits multiple categories, pick the most specific match\n- If genuinely unclear, pick the most general category available\n\nEmail Subject: ${email.subject}\nEmail Body: ${email.body}\n\nReply with ONLY the category name, nothing else.`;
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
