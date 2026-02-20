@@ -161,6 +161,15 @@
                     </div>
                 </div>
 
+                <!-- AI Instructions -->
+                <div class="mb-6">
+                    <div class="section-title mb-4">AI INSTRUCTIONS</div>
+                    <div>
+                        <label class="form-label">Custom Instructions <span class="text-gray-600 font-normal normal-case">(injected into the AI prompt for this client)</span></label>
+                        <textarea id="f-ai-instructions" class="form-input" style="min-height:100px;" placeholder="e.g. Always sign off as 'The Brooklyn Team'. If the customer mentions an emergency, lead with the 24/7 emergency line. Keep a warm, friendly tone — this is a family business."></textarea>
+                    </div>
+                </div>
+
                 <!-- Escalation -->
                 <div class="mb-6">
                     <div class="section-title mb-4">ESCALATION</div>
@@ -346,6 +355,7 @@
             document.getElementById('f-keywords').value = '';
             document.getElementById('f-esc-default').value = '';
             document.getElementById('f-esc-senior').value = '';
+            document.getElementById('f-ai-instructions').value = '';
             document.getElementById('f-active').checked = true;
             modalFaqs = [];
             renderModalFaqs();
@@ -368,6 +378,7 @@
             document.getElementById('f-keywords').value = (config.escalation_keywords || []).join(', ');
             document.getElementById('f-esc-default').value = (config.escalation_routing || {}).default || '';
             document.getElementById('f-esc-senior').value = (config.escalation_routing || {}).senior || '';
+            document.getElementById('f-ai-instructions').value = config.ai_instructions || '';
             document.getElementById('f-active').checked = client.is_active;
             modalFaqs = JSON.parse(JSON.stringify(config.faqs || []));
             renderModalFaqs();
@@ -429,6 +440,7 @@
                 data_retention_days: parseInt(document.getElementById('f-retention').value) || 7,
                 approval_mode: false,
                 categories: ['General Inquiry', 'Billing', 'Scheduling', 'Emergency Service', 'Pricing Questions'],
+                ai_instructions: document.getElementById('f-ai-instructions').value.trim() || null,
             };
 
             const payload = {
