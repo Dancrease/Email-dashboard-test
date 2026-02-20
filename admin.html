@@ -199,22 +199,6 @@
                     <p id="modal-no-faqs" class="text-sm text-gray-600 text-center py-2">No FAQs yet.</p>
                 </div>
 
-                <!-- Toggles -->
-                <div class="flex flex-col gap-3 mb-7">
-                    <div class="flex items-center gap-3 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
-                        <input type="checkbox" id="f-active" checked class="w-4 h-4 accent-purple-500">
-                        <div>
-                            <label for="f-active" class="text-sm font-medium text-gray-300 cursor-pointer">Active — agent will process emails for this client</label>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 p-4 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
-                        <input type="checkbox" id="f-approval-mode" class="w-4 h-4 accent-violet-500">
-                        <div>
-                            <label for="f-approval-mode" class="text-sm font-medium text-gray-300 cursor-pointer">Shadow Mode — silently collect emails and AI responses, nothing is sent or actioned</label>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="flex items-center gap-3">
                     <button onclick="saveClient()" class="btn-primary" id="save-btn">Save Client</button>
                     <button onclick="closeModal()" class="btn-ghost-sm">Cancel</button>
@@ -307,13 +291,7 @@
                                 <div class="text-xs text-gray-500">${escHtml(client.monitored_email)}</div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="stat-pill ${client.admin_paused ? 'bg-orange-500/10 text-orange-400' : client.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
-                                <span class="status-dot ${client.admin_paused ? 'bg-orange-400' : client.is_active ? 'bg-emerald-400' : 'bg-red-400'}"></span>
-                                ${client.admin_paused ? 'Admin Paused' : client.is_active ? 'Active' : 'Paused'}
-                            </span>
-                            ${client.config?.approval_mode ? '<span class="stat-pill bg-violet-500/10 text-violet-400"><span class="status-dot bg-violet-400"></span>Shadow Mode</span>' : ''}
-                        </div>
+                        <div></div>
                     </div>
 
                     <div class="grid grid-cols-4 gap-3 mb-5">
@@ -337,8 +315,10 @@
 
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-gray-600">Last check: ${lastCheck}</span>
-                        <div class="flex items-center gap-2">
-                            <button onclick="toggleAdminPause('${client.id}', ${client.admin_paused})" class="btn-ghost-sm" style="${client.admin_paused ? 'color:#fb923c;border-color:rgba(249,115,22,0.3);' : ''}">${client.admin_paused ? 'Release Pause' : 'Admin Pause'}</button>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="toggleActive('${client.id}', ${client.is_active})" class="btn-ghost-sm" style="${client.is_active ? 'color:#34d399;border-color:rgba(52,211,153,0.25);' : 'color:#f87171;border-color:rgba(248,113,113,0.25);'}">${client.is_active ? '● Active' : '● Paused'}</button>
+                            <button onclick="toggleShadowMode('${client.id}', ${!!client.config?.approval_mode})" class="btn-ghost-sm" style="${client.config?.approval_mode ? 'color:#a78bfa;border-color:rgba(167,139,250,0.25);' : ''}">${client.config?.approval_mode ? '◑ Shadow On' : '◑ Shadow Off'}</button>
+                            <button onclick="toggleAdminPause('${client.id}', ${client.admin_paused})" class="btn-ghost-sm" style="${client.admin_paused ? 'color:#fb923c;border-color:rgba(249,115,22,0.3);' : ''}">${client.admin_paused ? 'Admin Pause: On' : 'Admin Pause'}</button>
                             <button onclick="openEditClient('${client.id}')" class="btn-ghost-sm">Edit</button>
                         </div>
                     </div>
@@ -368,8 +348,6 @@
             document.getElementById('f-esc-default').value = '';
             document.getElementById('f-esc-senior').value = '';
             document.getElementById('f-ai-instructions').value = '';
-            document.getElementById('f-active').checked = true;
-            document.getElementById('f-approval-mode').checked = false;
             modalFaqs = [];
             renderModalFaqs();
             document.getElementById('modal-overlay').classList.remove('hidden');
@@ -392,8 +370,6 @@
             document.getElementById('f-esc-default').value = (config.escalation_routing || {}).default || '';
             document.getElementById('f-esc-senior').value = (config.escalation_routing || {}).senior || '';
             document.getElementById('f-ai-instructions').value = config.ai_instructions || '';
-            document.getElementById('f-active').checked = client.is_active;
-            document.getElementById('f-approval-mode').checked = config.approval_mode || false;
             modalFaqs = JSON.parse(JSON.stringify(config.faqs || []));
             renderModalFaqs();
             document.getElementById('modal-overlay').classList.remove('hidden');
@@ -440,8 +416,10 @@
 
             const clientId = document.getElementById('edit-client-id').value;
             const keywords = document.getElementById('f-keywords').value.split(',').map(k => k.trim()).filter(k => k);
+            const existingConfig = clientId ? (clientsMap[clientId]?.config || {}) : {};
 
             const config = {
+                ...existingConfig,
                 business_description: document.getElementById('f-description').value,
                 business_hours: document.getElementById('f-hours').value,
                 tone: document.getElementById('f-tone').value,
@@ -452,7 +430,6 @@
                     senior: document.getElementById('f-esc-senior').value,
                 },
                 data_retention_days: parseInt(document.getElementById('f-retention').value) || 7,
-                approval_mode: document.getElementById('f-approval-mode').checked,
                 categories: ['General Inquiry', 'Billing', 'Scheduling', 'Emergency Service', 'Pricing Questions'],
                 ai_instructions: document.getElementById('f-ai-instructions').value.trim() || null,
             };
@@ -462,7 +439,6 @@
                 monitored_email: document.getElementById('f-email').value,
                 gmail_oauth_token: document.getElementById('f-token').value,
                 email_limit: parseInt(document.getElementById('f-limit').value) || 500,
-                is_active: document.getElementById('f-active').checked,
                 config,
             };
 
@@ -471,6 +447,7 @@
                 ({ error } = await supabaseClient.from('clients').update(payload).eq('id', clientId));
             } else {
                 payload.current_month_count = 0;
+                payload.is_active = true;
                 ({ error } = await supabaseClient.from('clients').insert(payload));
             }
 
@@ -489,6 +466,18 @@
 
         function escHtml(str) {
             return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        async function toggleActive(clientId, currentState) {
+            await supabaseClient.from('clients').update({ is_active: !currentState }).eq('id', clientId);
+            await loadDashboard();
+        }
+
+        async function toggleShadowMode(clientId, currentShadow) {
+            const client = clientsMap[clientId];
+            const config = { ...(client.config || {}), approval_mode: !currentShadow };
+            await supabaseClient.from('clients').update({ config }).eq('id', clientId);
+            await loadDashboard();
         }
 
         // Close modal on overlay click
