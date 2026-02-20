@@ -223,7 +223,7 @@ async function forwardEscalatedEmail(accessToken: string, to: string, email: any
 
 async function checkSpam(email: any, client: any): Promise<boolean> {
   const businessContext = client.config.business_description || 'a business';
-  const prompt = `You are a spam filter for ${businessContext}. Is the following email clearly spam, a bulk promotional message, or an automated bot message? Short, genuine customer questions about the business (e.g. asking about hours, prices, or services) are NOT spam. Only reply YES if it is clearly spam/promotional/bot. Reply with only YES or NO.\n\nSubject: ${email.subject}\nFrom: ${email.from}\nBody: ${email.body.substring(0, 500)}`;
+  const prompt = `The following email was sent to ${businessContext}. Is it clearly spam, a bulk promotional message, or an automated bot message? Genuine customer questions (e.g. about hours, prices, or services) are NOT spam, even if short or lacking a subject. Reply with only YES or NO.\n\nSubject: ${email.subject}\nFrom: ${email.from}\nBody: ${email.body.substring(0, 500)}`;
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
