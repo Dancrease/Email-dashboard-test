@@ -319,6 +319,7 @@
                             <button onclick="toggleActive('${client.id}', ${client.is_active})" class="btn-ghost-sm" style="${client.is_active ? 'color:#34d399;border-color:rgba(52,211,153,0.25);' : 'color:#f87171;border-color:rgba(248,113,113,0.25);'}">${client.is_active ? '● Active' : '● Paused'}</button>
                             <button onclick="toggleShadowMode('${client.id}', ${!!client.config?.approval_mode})" class="btn-ghost-sm" style="${client.config?.approval_mode ? 'color:#a78bfa;border-color:rgba(167,139,250,0.25);' : ''}">${client.config?.approval_mode ? '◑ Shadow On' : '◑ Shadow Off'}</button>
                             <button onclick="toggleAdminPause('${client.id}', ${client.admin_paused})" class="btn-ghost-sm" style="${client.admin_paused ? 'color:#fb923c;border-color:rgba(249,115,22,0.3);' : ''}">${client.admin_paused ? 'Admin Pause: On' : 'Admin Pause'}</button>
+                            <a href="setup.html?client_id=${client.id}" class="btn-ghost-sm" style="color:#38bdf8;border-color:rgba(56,189,248,0.25);text-decoration:none;">${client.gmail_oauth_token ? '↻ Reconnect Gmail' : '⚡ Connect Gmail'}</a>
                             <button onclick="openEditClient('${client.id}')" class="btn-ghost-sm">Edit</button>
                         </div>
                     </div>

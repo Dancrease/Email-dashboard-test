@@ -45,8 +45,8 @@
                     <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 </div>
                 <h2 class="text-xl font-bold text-white mb-2">Admin access required</h2>
-                <p class="text-sm text-gray-500 mb-6">Sign in with the admin account to connect Gmail.</p>
-                <button onclick="signInWithGoogle()" class="btn-primary">Sign in with Google</button>
+                <p class="text-sm text-gray-500 mb-6">Log in via the admin panel first, then click "Connect Gmail" on the client card.</p>
+                <a href="admin.html" class="btn-primary inline-block">Go to Admin Panel</a>
             </div>
         </div>
 
@@ -155,13 +155,6 @@
                 document.getElementById('screen-' + id).classList.add('hidden');
             });
             document.getElementById('screen-' + screenId).classList.remove('hidden');
-        }
-
-        async function signInWithGoogle() {
-            await supabaseClient.auth.signInWithOAuth({
-                provider: 'google',
-                options: { redirectTo: window.location.href }
-            });
         }
 
         function startOAuth() {
