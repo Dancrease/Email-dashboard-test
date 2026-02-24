@@ -182,7 +182,7 @@
                 const response = await fetch(fnUrl, {
                     method: 'POST',
                     headers: {
-                        'Authorization': 'Bearer ' + session.access_token,
+                        'Authorization': 'Bearer ' + window.APP_CONFIG.SUPABASE_ANON_KEY,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
