@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Setup — Email Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0a0a0b; background-image: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08) 0%, transparent 50%); min-height: 100vh; }
+        .glass-card { background: rgba(23, 23, 26, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 10px 30px -10px rgba(0, 0, 0, 0.5); border-radius: 24px; }
+        .btn-primary { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: white; font-weight: 600; padding: 14px 32px; border-radius: 20px; cursor: pointer; transition: all 200ms; border: none; font-size: 15px; }
+        .btn-primary:hover { box-shadow: 0 12px 28px rgba(124, 58, 237, 0.35); transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .step { display: flex; align-items: flex-start; gap: 14px; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .step:last-child { border-bottom: none; }
+        .step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #a78bfa; flex-shrink: 0; margin-top: 1px; }
+        .step-num.done { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.3); color: #34d399; }
+        .top-bar { background: rgba(23, 23, 26, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+        .logo-container { position: relative; width: 36px; height: 36px; }
+        .logo-border { position: absolute; inset: 0; border-radius: 10px; border: 2px solid transparent; background: linear-gradient(#0a0a0b, #0a0a0b) padding-box, linear-gradient(135deg, rgba(6, 182, 212, 0.5) 0%, rgba(59, 130, 246, 0.5) 50%, rgba(168, 85, 247, 0.5) 100%) border-box; }
+        .logo-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; color: #fff; }
+    </style>
+</head>
+<body class="text-gray-100">
+
+    <nav class="top-bar sticky top-0 z-50">
+        <div class="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="logo-container"><div class="logo-border"></div><div class="logo-text">AI</div></div>
+                <span class="font-semibold">Email Agent</span>
+            </div>
+            <a href="index.html" class="text-sm text-gray-500 hover:text-gray-300 transition">← Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto px-6 py-12">
+
+        <!-- State: not logged in -->
+        <div id="screen-login" class="hidden">
+            <div class="glass-card p-10 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Admin access required</h2>
+                <p class="text-sm text-gray-500 mb-6">Sign in with the admin account to connect Gmail.</p>
+                <button onclick="signInWithGoogle()" class="btn-primary">Sign in with Google</button>
+            </div>
+        </div>
+
+        <!-- State: processing OAuth callback -->
+        <div id="screen-processing" class="hidden">
+            <div class="glass-card p-10 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-7 h-7 text-purple-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Connecting Gmail...</h2>
+                <p class="text-sm text-gray-500" id="processing-msg">Exchanging authorisation code for tokens.</p>
+            </div>
+        </div>
+
+        <!-- State: success -->
+        <div id="screen-success" class="hidden">
+            <div class="glass-card p-10 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Gmail connected</h2>
+                <p class="text-sm text-gray-500 mb-6" id="success-msg">The inbox is now connected and the agent is ready to run.</p>
+                <a href="index.html" class="btn-primary inline-block">Go to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- State: error -->
+        <div id="screen-error" class="hidden">
+            <div class="glass-card p-10 text-center">
+                <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5">
+                    <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Connection failed</h2>
+                <p class="text-sm text-gray-500 mb-2" id="error-msg">Something went wrong.</p>
+                <p class="text-xs text-gray-600 mb-6" id="error-detail"></p>
+                <button onclick="startOAuth()" class="btn-primary">Try Again</button>
+            </div>
+        </div>
+
+        <!-- State: ready to connect -->
+        <div id="screen-connect" class="hidden">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold text-white mb-2">Connect Gmail Inbox</h1>
+                <p class="text-sm text-gray-500">Authorise the email agent to access the Gmail inbox you want it to monitor.</p>
+            </div>
+
+            <!-- Current status -->
+            <div class="glass-card p-6 mb-6" id="current-status-card">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Current Status</div>
+                <div id="status-connected" class="hidden flex items-center gap-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"></div>
+                    <div>
+                        <div class="text-sm font-semibold text-white">Gmail connected</div>
+                        <div class="text-xs text-gray-500" id="connected-email"></div>
+                    </div>
+                    <span class="ml-auto text-xs text-emerald-400 font-semibold">Active</span>
+                </div>
+                <div id="status-disconnected" class="hidden flex items-center gap-3">
+                    <div class="w-2.5 h-2.5 rounded-full bg-gray-600 flex-shrink-0"></div>
+                    <div class="text-sm text-gray-400">No Gmail inbox connected yet</div>
+                </div>
+            </div>
+
+            <!-- What this does -->
+            <div class="glass-card p-6 mb-6">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">What you're authorising</div>
+                <div class="step">
+                    <div class="step-num done">✓</div>
+                    <div><div class="text-sm font-medium text-white">Read emails</div><div class="text-xs text-gray-500 mt-0.5">The agent reads incoming emails from the inbox</div></div>
+                </div>
+                <div class="step">
+                    <div class="step-num done">✓</div>
+                    <div><div class="text-sm font-medium text-white">Send replies</div><div class="text-xs text-gray-500 mt-0.5">The agent sends AI-generated responses on your behalf</div></div>
+                </div>
+                <div class="step">
+                    <div class="step-num done">✓</div>
+                    <div><div class="text-sm font-medium text-white">Manage labels</div><div class="text-xs text-gray-500 mt-0.5">Emails are labelled as AI-Handled, Escalated, or Spam</div></div>
+                </div>
+            </div>
+
+            <button onclick="startOAuth()" id="connect-btn" class="btn-primary w-full flex items-center justify-center gap-3">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Connect Gmail Account
+            </button>
+            <p class="text-xs text-gray-600 text-center mt-3">You can reconnect at any time if the token expires.</p>
+        </div>
+
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        const supabaseClient = window.supabase.createClient(
+            window.APP_CONFIG.SUPABASE_URL,
+            window.APP_CONFIG.SUPABASE_ANON_KEY
+        );
+
+        const GMAIL_SCOPES = [
+            'https://www.googleapis.com/auth/gmail.modify',
+            'https://www.googleapis.com/auth/gmail.send',
+        ].join(' ');
+
+        let clientRecord = null;
+
+        function show(screenId) {
+            ['login','processing','success','error','connect'].forEach(id => {
+                document.getElementById('screen-' + id).classList.add('hidden');
+            });
+            document.getElementById('screen-' + screenId).classList.remove('hidden');
+        }
+
+        async function signInWithGoogle() {
+            await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.href }
+            });
+        }
+
+        function startOAuth() {
+            const redirectUri = window.APP_CONFIG.SITE_URL + '/setup.html';
+            const params = new URLSearchParams({
+                client_id: window.APP_CONFIG.GMAIL_CLIENT_ID,
+                redirect_uri: redirectUri,
+                response_type: 'code',
+                scope: GMAIL_SCOPES,
+                access_type: 'offline',
+                prompt: 'consent',
+            });
+            window.location.href = 'https://accounts.google.com/o/oauth2/auth?' + params.toString();
+        }
+
+        async function handleOAuthCallback(code) {
+            show('processing');
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('Not authenticated');
+
+                document.getElementById('processing-msg').textContent = 'Storing credentials securely...';
+
+                const fnUrl = window.APP_CONFIG.SUPABASE_URL + '/functions/v1/gmail-oauth';
+                const response = await fetch(fnUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + session.access_token,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code,
+                        redirect_uri: window.APP_CONFIG.SITE_URL + '/setup.html',
+                        client_id: clientRecord?.id || null,
+                    }),
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Function error');
+
+                document.getElementById('success-msg').textContent =
+                    'The inbox is now connected and the agent is ready to run.';
+                show('success');
+
+                // Clean the URL
+                window.history.replaceState({}, '', window.location.pathname);
+            } catch (err) {
+                document.getElementById('error-msg').textContent = 'Could not complete Gmail connection.';
+                document.getElementById('error-detail').textContent = err.message;
+                show('error');
+            }
+        }
+
+        async function loadConnectScreen() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+
+            // Load client record to show current status
+            const email = session.user.email;
+            const { data: client } = await supabaseClient
+                .from('clients')
+                .select('id, monitored_email, gmail_oauth_token')
+                .eq('monitored_email', email)
+                .maybeSingle();
+
+            // Admin can also see all clients — fall back to first active one
+            const { data: adminClient } = !client ? await supabaseClient
+                .from('clients')
+                .select('id, monitored_email, gmail_oauth_token')
+                .eq('is_active', true)
+                .limit(1)
+                .maybeSingle() : { data: null };
+
+            clientRecord = client || adminClient;
+
+            if (clientRecord?.gmail_oauth_token) {
+                document.getElementById('status-connected').classList.remove('hidden');
+                document.getElementById('connected-email').textContent = clientRecord.monitored_email;
+                document.getElementById('connect-btn').textContent = 'Reconnect Gmail Account';
+            } else {
+                document.getElementById('status-disconnected').classList.remove('hidden');
+            }
+
+            show('connect');
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const oauthError = params.get('error');
+
+            if (oauthError) {
+                document.getElementById('error-msg').textContent = 'Google authorisation was cancelled or denied.';
+                document.getElementById('error-detail').textContent = oauthError;
+                show('error');
+                return;
+            }
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+
+            if (!session) {
+                show('login');
+                return;
+            }
+
+            // Check admin access
+            if (session.user.email !== window.APP_CONFIG.ADMIN_EMAIL) {
+                document.getElementById('screen-login').innerHTML = `
+                    <div class="glass-card p-10 text-center">
+                        <h2 class="text-xl font-bold text-white mb-2">Access denied</h2>
+                        <p class="text-sm text-gray-500">This page is for admin use only.</p>
+                    </div>`;
+                show('login');
+                return;
+            }
+
+            if (code) {
+                await handleOAuthCallback(code);
+            } else {
+                await loadConnectScreen();
+            }
+        });
+    </script>
+</body>
+</html>
