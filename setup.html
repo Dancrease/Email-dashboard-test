@@ -138,17 +138,10 @@
 
     <script src="config.js"></script>
     <script>
-        const supabaseClient = window.supabase.createClient(
-            window.APP_CONFIG.SUPABASE_URL,
-            window.APP_CONFIG.SUPABASE_ANON_KEY
-        );
-
         const GMAIL_SCOPES = [
             'https://www.googleapis.com/auth/gmail.modify',
             'https://www.googleapis.com/auth/gmail.send',
         ].join(' ');
-
-        let clientRecord = null;
 
         function show(screenId) {
             ['login','processing','success','error','connect'].forEach(id => {
@@ -158,6 +151,7 @@
         }
 
         function startOAuth() {
+            const clientId = sessionStorage.getItem('setup_client_id');
             const redirectUri = window.APP_CONFIG.SITE_URL + '/setup.html';
             const params = new URLSearchParams({
                 client_id: window.APP_CONFIG.GMAIL_CLIENT_ID,
@@ -166,16 +160,14 @@
                 scope: GMAIL_SCOPES,
                 access_type: 'offline',
                 prompt: 'consent',
+                state: clientId || '',
             });
             window.location.href = 'https://accounts.google.com/o/oauth2/auth?' + params.toString();
         }
 
-        async function handleOAuthCallback(code) {
+        async function handleOAuthCallback(code, clientId) {
             show('processing');
             try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (!session) throw new Error('Not authenticated');
-
                 document.getElementById('processing-msg').textContent = 'Storing credentials securely...';
 
                 const fnUrl = window.APP_CONFIG.SUPABASE_URL + '/functions/v1/gmail-oauth';
@@ -188,7 +180,7 @@
                     body: JSON.stringify({
                         code,
                         redirect_uri: window.APP_CONFIG.SITE_URL + '/setup.html',
-                        client_id: clientRecord?.id || null,
+                        client_id: clientId || null,
                     }),
                 });
 
@@ -196,10 +188,9 @@
                 if (!response.ok) throw new Error(result.error || 'Function error');
 
                 document.getElementById('success-msg').textContent =
-                    'The inbox is now connected and the agent is ready to run.';
+                    'Your Gmail inbox is now connected. The email agent is active.';
                 show('success');
-
-                // Clean the URL
+                sessionStorage.removeItem('setup_client_id');
                 window.history.replaceState({}, '', window.location.pathname);
             } catch (err) {
                 document.getElementById('error-msg').textContent = 'Could not complete Gmail connection.';
@@ -208,42 +199,14 @@
             }
         }
 
-        async function loadConnectScreen() {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-
-            // Load client record to show current status
-            const email = session.user.email;
-            const { data: client } = await supabaseClient
-                .from('clients')
-                .select('id, monitored_email, gmail_oauth_token')
-                .eq('monitored_email', email)
-                .maybeSingle();
-
-            // Admin can also see all clients — fall back to first active one
-            const { data: adminClient } = !client ? await supabaseClient
-                .from('clients')
-                .select('id, monitored_email, gmail_oauth_token')
-                .eq('is_active', true)
-                .limit(1)
-                .maybeSingle() : { data: null };
-
-            clientRecord = client || adminClient;
-
-            if (clientRecord?.gmail_oauth_token) {
-                document.getElementById('status-connected').classList.remove('hidden');
-                document.getElementById('connected-email').textContent = clientRecord.monitored_email;
-                document.getElementById('connect-btn').textContent = 'Reconnect Gmail Account';
-            } else {
-                document.getElementById('status-disconnected').classList.remove('hidden');
-            }
-
-            show('connect');
-        }
-
         window.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const oauthError = params.get('error');
+            // client_id comes from URL param on first load, or from state on OAuth callback
+            const clientId = params.get('client_id')
+                || params.get('state')
+                || sessionStorage.getItem('setup_client_id');
 
             if (oauthError) {
                 document.getElementById('error-msg').textContent = 'Google authorisation was cancelled or denied.';
@@ -252,28 +215,25 @@
                 return;
             }
 
-            const { data: { session } } = await supabaseClient.auth.getSession();
-
-            if (!session) {
-                show('login');
-                return;
-            }
-
-            // Check admin access
-            if (session.user.email !== window.APP_CONFIG.ADMIN_EMAIL) {
+            if (!clientId) {
+                // No client_id — invalid link
                 document.getElementById('screen-login').innerHTML = `
                     <div class="glass-card p-10 text-center">
-                        <h2 class="text-xl font-bold text-white mb-2">Access denied</h2>
-                        <p class="text-sm text-gray-500">This page is for admin use only.</p>
+                        <h2 class="text-xl font-bold text-white mb-2">Invalid link</h2>
+                        <p class="text-sm text-gray-500">This setup link is invalid or has expired. Please contact your account manager.</p>
                     </div>`;
                 show('login');
                 return;
             }
 
+            // Store client_id so it survives the OAuth redirect
+            sessionStorage.setItem('setup_client_id', clientId);
+
             if (code) {
-                await handleOAuthCallback(code);
+                await handleOAuthCallback(code, clientId);
             } else {
-                await loadConnectScreen();
+                document.getElementById('status-disconnected').classList.remove('hidden');
+                show('connect');
             }
         });
     </script>
